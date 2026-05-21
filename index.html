@@ -142,7 +142,7 @@ label{font-size:10px;color:#5E6770;letter-spacing:1.5px;text-transform:uppercase
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span class="plabel">月份</span><div class="month-tabs" id="mtabs"></div></div>
   </div>
   <div class="stats">
-    <div class="stat-card"><div class="stat-icon">📋</div><div><div class="stat-label">進行中筆數</div><div class="stat-value c-dark" id="s-count">—</div><div class="stat-period" id="s-p1"></div></div></div>
+    <div class="stat-card"><div class="stat-icon">📅</div><div><div class="stat-label">當月匯款總額</div><div class="stat-value c-dark" id="s-count">—</div><div class="stat-period" id="s-p1"></div></div></div>
     <div class="stat-card"><div class="stat-icon">💰</div><div><div class="stat-label">進行中總金額</div><div class="stat-value c-olive" id="s-amt">—</div><div class="stat-period" id="s-p2"></div></div></div>
     <div class="stat-card"><div class="stat-icon">📄</div><div><div class="stat-label">待處理項目</div><div class="stat-value c-green" id="s-pend">—</div><div class="stat-period" id="s-p3"></div></div></div>
   </div>
@@ -291,7 +291,11 @@ function render(){
   var pend=active.filter(function(r){return !r.payment_done||!r.invoice_received;}).length;
   var tot=active.reduce(function(s,r){return s+(+r.amount);},0);
   var p=pl();
-  document.getElementById('s-count').textContent=active.length+' 筆';
+  var now=new Date();
+  var cy=String(now.getFullYear());
+  var cm=String(now.getMonth()+1);
+  var monthTotal=records.filter(function(r){return rY(r)===cy&&rM(r)===cm;}).reduce(function(s,r){return s+(+r.amount);},0);
+  document.getElementById('s-count').textContent=fmt(monthTotal);
   document.getElementById('s-amt').textContent=fmt(tot);
   document.getElementById('s-pend').textContent=pend+' 筆';
   document.getElementById('s-p1').textContent=p;
