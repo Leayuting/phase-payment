@@ -345,20 +345,35 @@ function toggleDone(){
   document.getElementById('btn-done').textContent=doneOpen?'收起 ▲':'展開 ▼';
 }
 
-function getVL(){
-  var s=JSON.parse(localStorage.getItem('phase_vl')||'[]');
-  var f=[];
-  var seen={};
-  records.forEach(function(r){if(!seen[r.vendor]){seen[r.vendor]=1;f.push(r.vendor);}});
-  var all=s.concat(f);
-  var unique=[];
-  var u={};
-  all.forEach(function(v){if(!u[v]){u[v]=1;unique.push(v);}});
-  return unique.sort(function(a,b){return a.localeCompare(b,'zh-TW');});
+var vendorCache=[];
+
+async function loadVendors(){
+  try{
+    var res=await sb.from('vendors').select('name').order('name',{ascending:true});
+    if(res.error) throw res.error;
+    vendorCache=(res.data||[]).map(function(v){return v.name;});
+  }catch(e){console.error('Vendor load error:',e);}
 }
-function saveVL(l){localStorage.setItem('phase_vl',JSON.stringify(l));}
-function addVL(n){if(!n.trim())return;var l=getVL();if(l.indexOf(n.trim())<0){l.push(n.trim());saveVL(l);}}
-function rmVL(n){saveVL(getVL().filter(function(v){return v!==n;}));onVI();}
+
+function getVL(){return vendorCache;}
+
+async function addVL(n){
+  if(!n.trim()) return;
+  if(vendorCache.indexOf(n.trim())>=0) return;
+  try{
+    await sb.from('vendors').insert([{name:n.trim()}]);
+    vendorCache.push(n.trim());
+    vendorCache.sort(function(a,b){return a.localeCompare(b,'zh-TW');});
+  }catch(e){console.error('Vendor add error:',e);}
+}
+
+async function rmVL(n){
+  try{
+    await sb.from('vendors').delete().eq('name',n);
+    vendorCache=vendorCache.filter(function(v){return v!==n;});
+  }catch(e){console.error('Vendor remove error:',e);}
+  onVI();
+}
 
 function onVI(){
   var q=document.getElementById('f-vendor').value.toLowerCase();
@@ -486,6 +501,8 @@ async function confirmDelete(){
 }
 
 sb.channel('rc').on('postgres_changes',{event:'*',schema:'public',table:'records'},function(){loadAll();}).subscribe();
+sb.channel('vc').on('postgres_changes',{event:'*',schema:'public',table:'vendors'},function(){loadVendors();}).subscribe();
+loadVendors();
 loadAll();
 
 </script>
