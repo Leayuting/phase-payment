@@ -153,13 +153,13 @@ label{font-size:10px;color:#5E6770;letter-spacing:1.5px;text-transform:uppercase
       <th onclick="setSort('vendor')">廠商名稱 <span id="sa-vendor" style="opacity:.4">▲</span></th>
       <th onclick="setSort('date')">匯款日期 <span id="sa-date">▼</span></th>
       <th onclick="setSort('amount')">金額 <span id="sa-amount" style="opacity:.4">▲</span></th>
-      <th class="ns">匯款狀態</th><th class="ns">發票狀態</th><th class="ns">備註</th><th class="ns">操作</th>
+      <th class="ns">匯款狀態</th><th class="ns">發票狀態</th><th class="ns">發票日期</th><th class="ns">備註</th><th class="ns">操作</th>
     </tr></thead>
     <tbody id="tb-active"></tbody>
   </table></div></div>
   <div class="section-header"><span class="section-title" style="color:#4E5747">已完成</span><span class="section-badge sb-done" id="b-done">0</span><div class="section-line"></div><button class="section-toggle" id="btn-done" onclick="toggleDone()">收起 ▲</button></div>
   <div id="done-sec"><div class="table-wrap done-table"><div class="table-scroll"><table>
-    <thead><tr><th class="ns">廠商名稱</th><th class="ns">匯款日期</th><th class="ns">金額</th><th class="ns">匯款狀態</th><th class="ns">發票狀態</th><th class="ns">備註</th><th class="ns">操作</th></tr></thead>
+    <thead><tr><th class="ns">廠商名稱</th><th class="ns">匯款日期</th><th class="ns">金額</th><th class="ns">匯款狀態</th><th class="ns">發票狀態</th><th class="ns">發票日期</th><th class="ns">備註</th><th class="ns">操作</th></tr></thead>
     <tbody id="tb-done"></tbody>
   </table></div></div></div>
 </div>
@@ -178,6 +178,7 @@ label{font-size:10px;color:#5E6770;letter-spacing:1.5px;text-transform:uppercase
       <div class="fg"><label>匯款狀態</label><div class="twrap" onclick="togF('pay')"><div class="tog off" id="tog-pay"><div class="tok"></div></div><span class="tlabel" id="lbl-pay">尚未匯款</span></div></div>
       <div class="fg"><label>發票狀態</label><div class="twrap" onclick="togF('inv')"><div class="tog off" id="tog-inv"><div class="tok"></div></div><span class="tlabel" id="lbl-inv">尚未收到</span></div></div>
     </div>
+    <div class="fg" id="inv-date-wrap"><label>發票日期（選填）</label><input class="fi" type="date" id="f-inv-date"></div>
     <div id="auto-hint" style="display:none" class="hint">✓ 兩項皆完成，儲存後將自動移入「已完成」區</div>
     <div class="fg"><label>備註</label><input class="fi" type="text" id="f-notes" placeholder="選填"></div>
     <div class="mactions"><button class="btn-cancel" onclick="closeModal()">取消</button><button class="btn-save" id="btn-save" onclick="saveRecord()">新增紀錄</button></div>
@@ -271,7 +272,7 @@ function rowHtml(r){
   var ic=r.invoice_received?'g':'re';
   var it=r.invoice_received?'&#10003; 已收到':'&#10007; 未收到';
   var vendor=esc(r.vendor||'');
-  var notes=r.notes?esc(r.notes):'&#8212;';
+
   var row='<tr id="row-'+r.id+'">';
   row+='<td class="td-v">'+vendor+'</td>';
   row+='<td class="td-d">'+(r.date||'')+'</td>';
@@ -426,11 +427,11 @@ document.addEventListener('click',function(e){
 });
 
 function setTog(w,v){
-  if(w==='pay') fPay=v; else fInv=v;
-  document.getElementById('tog-'+w).className='tog '+(v?'on':'off');
-  if(w==='pay') document.getElementById('lbl-pay').textContent=v?'已匯款':'尚未匯款';
-  else document.getElementById('lbl-inv').textContent=v?'已收到發票':'尚未收到';
+  if(w==='pay'){fPay=v;document.getElementById('tog-pay').className='tog '+(v?'on':'off');document.getElementById('lbl-pay').textContent=v?'已匯款':'尚未匯款';}
+  else{fInv=v;document.getElementById('tog-inv').className='tog '+(v?'on':'off');document.getElementById('lbl-inv').textContent=v?'已收到發票':'尚未收到';}
   document.getElementById('auto-hint').style.display=(fPay&&fInv)?'block':'none';
+  var wrap=document.getElementById('inv-date-wrap');
+  if(wrap){wrap.style.display=fInv?'block':'none';}
 }
 function togF(w){if(w==='pay') setTog('pay',!fPay); else setTog('inv',!fInv);}
 
@@ -443,6 +444,7 @@ function openForm(){
   document.getElementById('f-amount').value='';
   document.getElementById('f-notes').value='';
   document.getElementById('f-date').value='';
+  document.getElementById('f-inv-date').value='';
   setTog('pay',false);setTog('inv',false);
   document.getElementById('modal').style.display='flex';
 }
@@ -461,6 +463,7 @@ function openEdit(id){
   document.getElementById('f-notes').value=r.notes||'';
   setTog('pay',r.payment_done);
   setTog('inv',r.invoice_received);
+  document.getElementById('f-inv-date').value=r.invoice_date||'';
   document.getElementById('modal').style.display='flex';
 }
 
@@ -472,7 +475,8 @@ async function saveRecord(){
   var date=document.getElementById('f-date').value;
   if(!vendor||!amount||!date) return;
   var notes=document.getElementById('f-notes').value.trim();
-  var rec={vendor:vendor,amount:amount,date:date,payment_done:fPay,invoice_received:fInv,notes:notes};
+  var invDate=document.getElementById('f-inv-date').value||null;
+  var rec={vendor:vendor,amount:amount,date:date,payment_done:fPay,invoice_received:fInv,notes:notes,invoice_date:invDate};
   document.getElementById('btn-save').disabled=true;
   if(editId!==null){
     var res=await sb.from('records').update(rec).eq('id',editId);
