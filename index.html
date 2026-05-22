@@ -280,6 +280,7 @@ function rowHtml(r){
   row+='<td class="td-a">'+fmt(r.amount)+'</td>';
   row+='<td><button class="pill '+pc+'" onclick="togglePill('+r.id+',\'payment_done\')">'+pt+'</button></td>';
   row+='<td><button class="pill '+ic+'" onclick="togglePill('+r.id+',\'invoice_received\')">'+it+'</button></td>';
+  row+='<td class="td-d">'+(r.invoice_date||'&#8212;')+'</td>';
   row+='<td class="td-n">'+notes+'</td>';
   row+='<td><div class="actions"><button class="btn-edit" onclick="openEdit('+r.id+')">編輯</button> <button class="btn-del" onclick="openDel('+r.id+')">刪除</button></div></td>';
   row+='</tr>';
