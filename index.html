@@ -272,6 +272,7 @@ function rowHtml(r){
   var ic=r.invoice_received?'g':'re';
   var it=r.invoice_received?'&#10003; 已收到':'&#10007; 未收到';
   var vendor=esc(r.vendor||'');
+  var notes=r.notes?esc(r.notes):'&#8212;';
 
   var row='<tr id="row-'+r.id+'">';
   row+='<td class="td-v">'+vendor+'</td>';
