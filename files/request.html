@@ -134,28 +134,28 @@
       <h3>新增請款申請</h3>
       <div class="form-grid">
         <div>
-          <label class="form-label">門店</label>
+          <label class="form-label">門店 *</label>
           <select class="form-select" id="f-store">
             <option value="中山">中山</option>
             <option value="勤美">勤美</option>
           </select>
         </div>
         <div>
-          <label class="form-label">申請人</label>
+          <label class="form-label">申請人 *</label>
           <input class="form-input" id="f-applicant" placeholder="姓名">
         </div>
         <div class="full">
-          <label class="form-label">廠商名稱</label>
+          <label class="form-label">廠商名稱 *</label>
           <input class="form-input" id="f-vendor" list="vendor-list" placeholder="輸入或選擇廠商">
           <datalist id="vendor-list"></datalist>
         </div>
         <div class="full">
-          <label class="form-label">品項／用途說明</label>
+          <label class="form-label">品項／用途說明 *</label>
           <textarea id="f-purpose" placeholder="例：台中咖啡展 背板輸出費用"></textarea>
         </div>
 
         <div class="full">
-          <label class="form-label">金額</label>
+          <label class="form-label">金額 *</label>
           <input class="form-input amount-total" type="number" id="f-total" placeholder="0">
         </div>
 
@@ -173,7 +173,7 @@
         </div>
 
         <div class="full">
-          <label class="form-label">發票狀態</label>
+          <label class="form-label">發票狀態 *</label>
           <select class="form-select" id="f-invoice">
             <option value="後補">發票後補</option>
             <option value="已附">已取得發票</option>
@@ -402,8 +402,8 @@
     var bankaccount = document.getElementById('f-bankaccount').value.trim();
     var invoiceStatus = document.getElementById('f-invoice').value;
 
-    if(!applicant || !vendor || !purpose || !total){
-      alert('請至少填寫：申請人、廠商名稱、用途說明、金額');
+    if(!store || !applicant || !vendor || !purpose || !invoiceStatus || !total){
+      alert('請填寫必填欄位：門店、申請人、廠商名稱、品項、發票狀態、金額');
       return;
     }
 
