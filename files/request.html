@@ -358,15 +358,22 @@
     renderReview();
   }
 
-  // ---- tabs ----
+  // ---- tabs (記住最後開啟的分頁，重新整理後停留在原本的頁面) ----
+  function activateTab(panel){
+    var tabEl = document.querySelector('.tab[data-panel="'+panel+'"]');
+    var panelEl = document.getElementById('panel-'+panel);
+    if(!tabEl || !panelEl) return;
+    document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active');});
+    document.querySelectorAll('.panel').forEach(function(x){x.classList.remove('active');});
+    tabEl.classList.add('active');
+    panelEl.classList.add('active');
+    localStorage.setItem('phase_active_tab', panel);
+  }
   document.querySelectorAll('.tab').forEach(function(t){
-    t.onclick = function(){
-      document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active');});
-      document.querySelectorAll('.panel').forEach(function(x){x.classList.remove('active');});
-      t.classList.add('active');
-      document.getElementById('panel-'+t.dataset.panel).classList.add('active');
-    };
+    t.onclick = function(){ activateTab(t.dataset.panel); };
   });
+  var savedTab = localStorage.getItem('phase_active_tab');
+  if(savedTab) activateTab(savedTab);
 
   // ---- store filter chips (each group filters independently) ----
   function wireStoreChips(containerId, onPick){
