@@ -77,7 +77,7 @@
   .req-amount{font-size:18px; font-weight:700; color:var(--accent); white-space:nowrap;}
   .req-meta{display:flex; flex-wrap:wrap; gap:8px; font-size:12px; color:var(--sub); margin-bottom:12px;}
   .req-meta span{background:var(--card2); border:1px solid var(--border); border-radius:20px; padding:4px 12px;}
-  .batch-bar{display:none; align-items:center; gap:14px; margin-bottom:14px; padding:10px 14px; background:var(--card2); border:1px solid var(--border); border-radius:8px;}
+  .batch-bar{display:none; align-items:center; flex-wrap:wrap; gap:10px 14px; margin-bottom:14px; padding:10px 14px; background:var(--card2); border:1px solid var(--border); border-radius:8px;}
   .batch-select-all{display:flex; align-items:center; gap:6px; font-size:13px; color:var(--sub); cursor:pointer;}
   .batch-count{font-size:12px; color:var(--sub); flex:1;}
   .req-check{width:16px; height:16px; margin-top:3px; cursor:pointer; accent-color:var(--accent); flex-shrink:0;}
@@ -97,7 +97,7 @@
   .pill-invoice-ok{background:#eaf0e8; border-color:var(--accent); color:var(--accent);}
   .pill-invoice-wait{background:#F3ECDD; border-color:var(--amber); color:var(--amber);}
 
-  .store-filter{display:flex; gap:8px; margin-bottom:20px;}
+  .store-filter{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:20px;}
   .chip{background:var(--bg); border:1px solid var(--border); border-radius:20px; padding:6px 16px; cursor:pointer; font-size:13px; color:var(--sub); font-family:inherit;}
   .chip:hover{border-color:var(--ink); color:var(--ink);}
   .chip.active{background:var(--ink); color:#F6F2EB; border-color:var(--ink); font-weight:700;}
@@ -113,6 +113,9 @@
   @media (max-width:640px){
     .form-grid, .amount-row, .stats{grid-template-columns:1fr;}
     .req-top{flex-direction:column;}
+    .header{padding:20px;}
+    .main{padding:16px 16px 40px;}
+    .card{padding:18px;}
   }
 </style>
 </head>
