@@ -77,6 +77,10 @@
   .req-amount{font-size:18px; font-weight:700; color:var(--accent); white-space:nowrap;}
   .req-meta{display:flex; flex-wrap:wrap; gap:8px; font-size:12px; color:var(--sub); margin-bottom:12px;}
   .req-meta span{background:var(--card2); border:1px solid var(--border); border-radius:20px; padding:4px 12px;}
+  .batch-bar{display:none; align-items:center; gap:14px; margin-bottom:14px; padding:10px 14px; background:var(--card2); border:1px solid var(--border); border-radius:8px;}
+  .batch-select-all{display:flex; align-items:center; gap:6px; font-size:13px; color:var(--sub); cursor:pointer;}
+  .batch-count{font-size:12px; color:var(--sub); flex:1;}
+  .req-check{width:16px; height:16px; margin-top:3px; cursor:pointer; accent-color:var(--accent); flex-shrink:0;}
   .req-fields{display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:12px 20px; background:var(--card2); border:1px solid var(--border); border-radius:8px; padding:14px 16px; margin-bottom:12px;}
   .req-field{display:flex; flex-direction:column; gap:4px; min-width:0;}
   .req-field-label{font-size:10px; color:var(--sub); letter-spacing:1.5px; text-transform:uppercase;}
@@ -223,6 +227,12 @@
     </div>
     <div class="card" id="reviewer-content" style="display:none;">
       <h3>待審核申請</h3>
+      <div class="batch-bar" id="batch-bar-pending">
+        <label class="batch-select-all"><input type="checkbox" id="chk-all-pending" onchange="toggleSelectAll('pending', this.checked)"> 全選</label>
+        <span class="batch-count" id="batch-count-pending"></span>
+        <button class="btn btn-approve btn-sm" onclick="batchApprove()">批次核准</button>
+        <button class="btn btn-reject btn-sm" onclick="batchReject()">批次退回</button>
+      </div>
       <div id="list-pending"><div class="empty">目前沒有待審核申請</div></div>
     </div>
 
@@ -239,6 +249,11 @@
     <div class="card" id="finance-content" style="display:none;">
       <h3>已核准・待財務撥款</h3>
       <p style="font-size:12px; color:var(--sub); margin-bottom:12px;">此清單僅顯示「主管已核准」的申請，撥款前請核對匯款帳戶資訊</p>
+      <div class="batch-bar" id="batch-bar-approved">
+        <label class="batch-select-all"><input type="checkbox" id="chk-all-approved" onchange="toggleSelectAll('approved', this.checked)"> 全選</label>
+        <span class="batch-count" id="batch-count-approved"></span>
+        <button class="btn btn-pay btn-sm" onclick="batchPay()">批次撥款並轉入匯款紀錄</button>
+      </div>
       <div id="list-approved"><div class="empty">目前沒有待撥款項目</div></div>
     </div>
   </div>
@@ -311,6 +326,37 @@
 
   var requests = [];
   var records = [];
+
+  // ---- batch selection (審核與撥款) ----
+  var selectedPending = new Set();
+  var selectedApproved = new Set();
+  function selSet(kind){ return kind==='pending' ? selectedPending : selectedApproved; }
+  function currentIds(kind){
+    var status = kind==='pending' ? '待審核' : '已核准';
+    return requests.filter(matchStore).filter(function(r){ return r.status===status; }).map(function(r){ return r.id; });
+  }
+  function updateBatchBar(kind){
+    var bar = document.getElementById('batch-bar-'+kind);
+    if(!bar) return;
+    var ids = currentIds(kind);
+    var s = selSet(kind);
+    Array.from(s).forEach(function(id){ if(ids.indexOf(id)===-1) s.delete(id); });
+    bar.style.display = ids.length ? 'flex' : 'none';
+    document.getElementById('batch-count-'+kind).textContent = s.size ? s.size+' / '+ids.length+' 筆已選取' : ids.length+' 筆';
+    var allChk = document.getElementById('chk-all-'+kind);
+    if(allChk) allChk.checked = ids.length>0 && s.size===ids.length;
+  }
+  function toggleSelect(kind, id, checked){
+    var s = selSet(kind);
+    if(checked) s.add(id); else s.delete(id);
+    updateBatchBar(kind);
+  }
+  function toggleSelectAll(kind, checked){
+    var ids = currentIds(kind);
+    var s = selSet(kind);
+    if(checked){ ids.forEach(function(id){ s.add(id); }); } else { s.clear(); }
+    renderReview();
+  }
 
   // ---- tabs ----
   document.querySelectorAll('.tab').forEach(function(t){
@@ -488,7 +534,10 @@
     }
     return '<div class="req-card">'
       + '<div class="req-top">'
-      +   '<div><div class="req-title">'+r.vendor+'</div><div class="req-sub">'+r.purpose+'</div></div>'
+      +   '<div style="display:flex;gap:10px;align-items:flex-start;">'
+      +     (opts.selectable ? '<input type="checkbox" class="req-check" '+(selSet(opts.selectable).has(r.id)?'checked':'')+' onchange="toggleSelect(\''+opts.selectable+'\','+r.id+',this.checked)">' : '')
+      +     '<div><div class="req-title">'+r.vendor+'</div><div class="req-sub">'+r.purpose+'</div></div>'
+      +   '</div>'
       +   '<div class="req-amount">'+fmt(r.amount_total)+'</div>'
       + '</div>'
       + fieldsHtml([
@@ -556,14 +605,17 @@
     var pEl = document.getElementById('list-pending');
     pEl.innerHTML = pending.length
       ? pending.sort(function(a,b){return new Date(a.created_at)-new Date(b.created_at);})
-               .map(function(r){ return reqCardHtml(r, {showApprove:true}); }).join('')
+               .map(function(r){ return reqCardHtml(r, {showApprove:true, selectable:'pending'}); }).join('')
       : '<div class="empty">目前沒有待審核申請</div>';
 
     var aEl = document.getElementById('list-approved');
     aEl.innerHTML = approved.length
       ? approved.sort(function(a,b){return new Date(a.created_at)-new Date(b.created_at);})
-                .map(function(r){ return reqCardHtml(r, {showPay:true, showBank:true}); }).join('')
+                .map(function(r){ return reqCardHtml(r, {showPay:true, showBank:true, selectable:'approved'}); }).join('')
       : '<div class="empty">目前沒有待撥款項目</div>';
+
+    updateBatchBar('pending');
+    updateBatchBar('approved');
   }
 
   // ---- render: invoice tracking (from records table, invoice_received=false) ----
@@ -616,6 +668,25 @@
     var note = prompt('退回原因（選填）：') || '';
     await sb.from('requests').update({status:'已退回', approver_note:note, updated_at:new Date().toISOString()}).eq('id', id);
   };
+
+  async function payOne(r){
+    var insertRes = await sb.from('records').insert([{
+      store: r.store,
+      vendor: r.vendor,
+      amount: r.amount_total,
+      category: '其他支出',
+      date: new Date().toISOString().slice(0,10),
+      payment_done: true,
+      invoice_received: (r.invoice_status==='已附' || r.invoice_status==='無發票'),
+      notes: '來自請款申請：'+r.purpose+'（'+(r.store||'')+' / 申請人：'+r.applicant+'）'
+    }]).select();
+    if(insertRes.error) throw insertRes.error;
+    var newRecordId = insertRes.data && insertRes.data[0] && insertRes.data[0].id;
+    await sb.from('requests').update({
+      status:'已撥款', payment_record_id:newRecordId, updated_at:new Date().toISOString()
+    }).eq('id', r.id);
+  }
+
   window.payReq = async function(id){
     if(!isFinanceUnlocked()){ alert('請先輸入撥款密碼'); return; }
     var r = requests.find(function(x){ return x.id===id; });
@@ -630,26 +701,55 @@
       + '金額：'+fmt(r.amount_total)+'\n\n'
       + '確認已完成匯款？將自動轉入「廠商匯款紀錄」。';
     if(!confirm(confirmMsg)) return;
-    try{
-      var insertRes = await sb.from('records').insert([{
-        store: r.store,
-        vendor: r.vendor,
-        amount: r.amount_total,
-        category: '其他支出',
-        date: new Date().toISOString().slice(0,10),
-        payment_done: true,
-        invoice_received: (r.invoice_status==='已附' || r.invoice_status==='無發票'),
-        notes: '來自請款申請：'+r.purpose+'（'+(r.store||'')+' / 申請人：'+r.applicant+'）'
-      }]).select();
-      if(insertRes.error) throw insertRes.error;
-      var newRecordId = insertRes.data && insertRes.data[0] && insertRes.data[0].id;
-      await sb.from('requests').update({
-        status:'已撥款', payment_record_id:newRecordId, updated_at:new Date().toISOString()
-      }).eq('id', id);
-    }catch(e){
+    try{ await payOne(r); }
+    catch(e){
       console.error(e);
       alert('轉入失敗，請確認 records 資料表欄位是否相符');
     }
+  };
+
+  // ---- batch actions (審核與撥款) ----
+  window.batchApprove = async function(){
+    if(!isReviewerUnlocked()){ alert('請先輸入審核密碼'); return; }
+    var targets = requests.filter(function(r){ return r.status==='待審核' && selectedPending.has(r.id); });
+    if(!targets.length){ alert('請先勾選要核准的項目'); return; }
+    if(!confirm('確定要核准選取的 '+targets.length+' 筆申請嗎？')) return;
+    for(var i=0;i<targets.length;i++){
+      await sb.from('requests').update({status:'已核准', updated_at:new Date().toISOString()}).eq('id', targets[i].id);
+    }
+    selectedPending.clear();
+  };
+
+  window.batchReject = async function(){
+    if(!isReviewerUnlocked()){ alert('請先輸入審核密碼'); return; }
+    var targets = requests.filter(function(r){ return r.status==='待審核' && selectedPending.has(r.id); });
+    if(!targets.length){ alert('請先勾選要退回的項目'); return; }
+    var note = prompt('退回原因（選填，套用到所有選取項目）：') || '';
+    if(!confirm('確定要退回選取的 '+targets.length+' 筆申請嗎？')) return;
+    for(var i=0;i<targets.length;i++){
+      await sb.from('requests').update({status:'已退回', approver_note:note, updated_at:new Date().toISOString()}).eq('id', targets[i].id);
+    }
+    selectedPending.clear();
+  };
+
+  window.batchPay = async function(){
+    if(!isFinanceUnlocked()){ alert('請先輸入撥款密碼'); return; }
+    var targets = requests.filter(function(r){ return r.status==='已核准' && selectedApproved.has(r.id); });
+    if(!targets.length){ alert('請先勾選要撥款的項目'); return; }
+    var total = targets.reduce(function(s,r){ return s+(+r.amount_total||0); },0);
+    var msg = '請核對以下 '+targets.length+' 筆匯款資訊：\n\n'
+      + targets.map(function(r){
+          return r.vendor+'　'+fmt(r.amount_total)+'\n　'+(r.account_name||'—')+' / '+(r.bank_name||'—')+' / '+(r.bank_account||'—');
+        }).join('\n\n')
+      + '\n\n合計：'+fmt(total)+'\n\n確認已完成匯款？將自動轉入「廠商匯款紀錄」。';
+    if(!confirm(msg)) return;
+    var failed = [];
+    for(var i=0;i<targets.length;i++){
+      try{ await payOne(targets[i]); }
+      catch(e){ console.error(e); failed.push(targets[i].vendor); }
+    }
+    selectedApproved.clear();
+    if(failed.length){ alert('以下項目轉入失敗，請確認 records 資料表欄位是否相符：\n'+failed.join('、')); }
   };
 
   // ---- load & realtime ----
