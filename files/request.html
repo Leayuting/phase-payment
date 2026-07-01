@@ -200,7 +200,7 @@
       <div class="stat-card"><div class="stat-label">本月已撥款</div><div class="stat-value" id="s-paid">—</div></div>
     </div>
 
-    <div class="store-filter">
+    <div class="store-filter" id="review-store-filter">
       <button class="chip active" data-store="全部">全部</button>
       <button class="chip" data-store="中山">中山</button>
       <button class="chip" data-store="勤美">勤美</button>
@@ -240,6 +240,11 @@
 
   <!-- 發票追蹤 -->
   <div class="panel" id="panel-invoice">
+    <div class="store-filter" id="invoice-store-filter">
+      <button class="chip active" data-store="全部">全部</button>
+      <button class="chip" data-store="中山">中山</button>
+      <button class="chip" data-store="勤美">勤美</button>
+    </div>
     <div class="card">
       <h3>待收發票（已撥款但發票未到）</h3>
       <div id="list-invoice"><div class="empty">目前沒有待收發票</div></div>
@@ -312,15 +317,19 @@
     };
   });
 
-  // ---- store filter chips ----
-  document.querySelectorAll('.chip').forEach(function(c){
-    c.onclick = function(){
-      document.querySelectorAll('.chip').forEach(function(x){x.classList.remove('active');});
-      c.classList.add('active');
-      storeFilter = c.dataset.store;
-      renderReview();
-    };
-  });
+  // ---- store filter chips (each group filters independently) ----
+  function wireStoreChips(containerId, onPick){
+    var chips = document.querySelectorAll('#'+containerId+' .chip');
+    chips.forEach(function(c){
+      c.onclick = function(){
+        chips.forEach(function(x){x.classList.remove('active');});
+        c.classList.add('active');
+        onPick(c.dataset.store);
+      };
+    });
+  }
+  wireStoreChips('review-store-filter', function(v){ storeFilter = v; renderReview(); });
+  wireStoreChips('invoice-store-filter', function(v){ invoiceStoreFilter = v; renderInvoiceTracking(); });
 
   // ---- file preview ----
   document.getElementById('f-files').addEventListener('change', function(e){
@@ -511,6 +520,7 @@
 
   // ---- store filter state ----
   var storeFilter = '全部';
+  var invoiceStoreFilter = '全部';
   function matchStore(r){ return storeFilter==='全部' || r.store===storeFilter; }
 
   // ---- render: review panels ----
@@ -546,7 +556,8 @@
 
   // ---- render: invoice tracking (from records table, invoice_received=false) ----
   function renderInvoiceTracking(){
-    var pending = records.filter(function(r){ return !r.invoice_received; });
+    var pending = records.filter(function(r){ return !r.invoice_received; })
+      .filter(function(r){ return invoiceStoreFilter==='全部' || r.store===invoiceStoreFilter; });
     var el = document.getElementById('list-invoice');
     if(!pending.length){ el.innerHTML = '<div class="empty">目前沒有待收發票</div>'; return; }
     el.innerHTML = pending.sort(function(a,b){return new Date(a.date||a.created_at)-new Date(b.date||b.created_at);})
