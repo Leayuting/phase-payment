@@ -76,6 +76,10 @@
   .req-amount{font-size:18px; font-weight:700; color:var(--accent); white-space:nowrap;}
   .req-meta{display:flex; flex-wrap:wrap; gap:8px; font-size:12px; color:var(--sub); margin-bottom:12px;}
   .req-meta span{background:var(--card2); border:1px solid var(--border); border-radius:20px; padding:4px 12px;}
+  .req-fields{display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:12px 20px; background:var(--card2); border:1px solid var(--border); border-radius:8px; padding:14px 16px; margin-bottom:12px;}
+  .req-field{display:flex; flex-direction:column; gap:4px; min-width:0;}
+  .req-field-label{font-size:10px; color:var(--sub); letter-spacing:1.5px; text-transform:uppercase;}
+  .req-field-val{font-size:13px; color:var(--ink); font-weight:600; overflow-wrap:break-word;}
   .store-tag{background:var(--ink) !important; color:#F6F2EB !important; border-color:var(--ink) !important; letter-spacing:1px;}
   .req-actions{display:flex; gap:8px; flex-wrap:wrap;}
 
@@ -486,11 +490,11 @@
       +   '<div><div class="req-title">'+r.vendor+'</div><div class="req-sub">'+r.purpose+'</div></div>'
       +   '<div class="req-amount">'+fmt(r.amount_total)+'</div>'
       + '</div>'
-      + '<div class="req-meta">'
-      +   (r.store ? '<span class="store-tag">'+r.store+'</span>' : '')
-      +   '<span>'+r.applicant+'</span>'
-      +   '<span>發票：'+r.invoice_status+'</span>'
-      +   '<span>'+statusPill(r.status)+'</span>'
+      + '<div class="req-fields">'
+      +   '<div class="req-field"><span class="req-field-label">門店</span><span class="req-field-val">'+(r.store||'—')+'</span></div>'
+      +   '<div class="req-field"><span class="req-field-label">申請人</span><span class="req-field-val">'+r.applicant+'</span></div>'
+      +   '<div class="req-field"><span class="req-field-label">發票</span><span class="req-field-val">'+r.invoice_status+'</span></div>'
+      +   '<div class="req-field"><span class="req-field-label">狀態</span><span class="req-field-val">'+statusPill(r.status)+'</span></div>'
       + '</div>'
       + (opts.showBank ? bankInfoHtml(r) : '')
       + attachHtml(r.attachment_urls)
@@ -499,10 +503,10 @@
   }
 
   function bankInfoHtml(r){
-    return '<div class="req-meta">'
-      +   '<span>戶名：'+(r.account_name||'—')+'</span>'
-      +   '<span>銀行：'+(r.bank_name||'—')+'</span>'
-      +   '<span>帳號：'+(r.bank_account||'—')+'</span>'
+    return '<div class="req-fields">'
+      +   '<div class="req-field"><span class="req-field-label">戶名</span><span class="req-field-val">'+(r.account_name||'—')+'</span></div>'
+      +   '<div class="req-field"><span class="req-field-label">銀行</span><span class="req-field-val">'+(r.bank_name||'—')+'</span></div>'
+      +   '<div class="req-field"><span class="req-field-label">帳號</span><span class="req-field-val">'+(r.bank_account||'—')+'</span></div>'
       + '</div>';
   }
 
