@@ -732,7 +732,7 @@
           + '</div>'
           + '<div class="req-meta">'
           +   (r.store ? '<span class="store-tag">'+r.store+'</span>' : '')
-          +   '<span>'+(r.category||'—')+'</span>'
+          +   (r.notes ? '<span>'+r.notes+'</span>' : '')
           +   '<span class="pill pill-invoice-wait">發票待收</span>'
           + '</div>'
           + '</div>';
@@ -771,7 +771,6 @@
       store: r.store,
       vendor: r.vendor,
       amount: r.amount_total,
-      category: '其他支出',
       date: new Date().toISOString().slice(0,10),
       payment_done: true,
       invoice_received: (r.invoice_status==='已附' || r.invoice_status==='無發票'),
