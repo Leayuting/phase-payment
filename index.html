@@ -21,6 +21,8 @@ body{background:#F6F2EB;font-family:'PingFang TC','Microsoft JhengHei',sans-seri
 .sync.err{background:#3a1a1a;color:#e05c5c;border:1px solid #5a2a2a}
 .btn-add{background:#4E5747;border:none;border-radius:6px;padding:10px 22px;font-weight:700;font-size:13px;color:#F6F2EB;cursor:pointer;font-family:inherit;white-space:nowrap}
 .btn-add:hover{background:#5E6770}
+.nav-link{font-size:11px;color:#D9D5CF;text-decoration:none;border:1px solid #5E6770;padding:8px 16px;border-radius:20px;white-space:nowrap;font-weight:600}
+.nav-link:hover{color:#F6F2EB;border-color:#F6F2EB}
 .main{padding:32px 40px}
 .period-nav{background:#fff;border:1px solid #D9D5CF;border-radius:10px;padding:18px 22px;margin-bottom:20px}
 .period-nav-top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px}
@@ -132,6 +134,7 @@ label{font-size:10px;color:#5E6770;letter-spacing:1.5px;text-transform:uppercase
     <div class="header-text"><h1>廠商匯款紀錄</h1><p>Payment Records</p></div>
   </div>
   <div class="header-right">
+    <a class="nav-link" href="files/request.html">→ 請款申請</a>
     <span class="sync loading" id="sync">⟳ 連線中</span>
     <button class="btn-add" onclick="openForm()">＋ 新增紀錄</button>
   </div>
@@ -146,11 +149,19 @@ label{font-size:10px;color:#5E6770;letter-spacing:1.5px;text-transform:uppercase
     <div class="stat-card"><div class="stat-icon">💰</div><div><div class="stat-label">進行中總金額</div><div class="stat-value c-olive" id="s-amt">—</div><div class="stat-period" id="s-p2"></div></div></div>
     <div class="stat-card"><div class="stat-icon">📄</div><div><div class="stat-label">待處理項目</div><div class="stat-value c-green" id="s-pend">—</div><div class="stat-period" id="s-p3"></div></div></div>
   </div>
-  <div class="filters"><input class="search-input" type="text" id="search" placeholder="🔍  搜尋廠商或備註..." oninput="render()"></div>
+  <div class="filters">
+    <select class="search-input" id="store-filter" style="flex:0 0 140px" onchange="render()">
+      <option value="all">全部門店</option>
+      <option value="中山">中山</option>
+      <option value="勤美">勤美</option>
+    </select>
+    <input class="search-input" type="text" id="search" placeholder="🔍  搜尋廠商或備註..." oninput="render()">
+  </div>
   <div class="section-header"><span class="section-title">進行中</span><span class="section-badge sb-active" id="b-active">0</span><div class="section-line"></div></div>
   <div class="table-wrap" style="margin-bottom:36px"><div class="table-scroll"><table>
     <thead><tr>
       <th onclick="setSort('vendor')">廠商名稱 <span id="sa-vendor" style="opacity:.4">▲</span></th>
+      <th class="ns">門店</th>
       <th onclick="setSort('date')">匯款日期 <span id="sa-date">▼</span></th>
       <th onclick="setSort('amount')">金額 <span id="sa-amount" style="opacity:.4">▲</span></th>
       <th class="ns">匯款狀態</th><th class="ns">發票狀態</th><th class="ns">發票日期</th><th class="ns">備註</th><th class="ns">操作</th>
@@ -159,7 +170,7 @@ label{font-size:10px;color:#5E6770;letter-spacing:1.5px;text-transform:uppercase
   </table></div></div>
   <div class="section-header"><span class="section-title" style="color:#4E5747">已完成</span><span class="section-badge sb-done" id="b-done">0</span><div class="section-line"></div><button class="section-toggle" id="btn-done" onclick="toggleDone()">收起 ▲</button></div>
   <div id="done-sec"><div class="table-wrap done-table"><div class="table-scroll"><table>
-    <thead><tr><th class="ns">廠商名稱</th><th class="ns">匯款日期</th><th class="ns">金額</th><th class="ns">匯款狀態</th><th class="ns">發票狀態</th><th class="ns">發票日期</th><th class="ns">備註</th><th class="ns">操作</th></tr></thead>
+    <thead><tr><th class="ns">廠商名稱</th><th class="ns">門店</th><th class="ns">匯款日期</th><th class="ns">金額</th><th class="ns">匯款狀態</th><th class="ns">發票狀態</th><th class="ns">發票日期</th><th class="ns">備註</th><th class="ns">操作</th></tr></thead>
     <tbody id="tb-done"></tbody>
   </table></div></div></div>
 </div>
@@ -169,6 +180,13 @@ label{font-size:10px;color:#5E6770;letter-spacing:1.5px;text-transform:uppercase
     <h2 id="m-title">新增匯款紀錄</h2>
     <div class="fg"><label>廠商名稱 *</label>
       <div class="vwrap"><input class="fi" type="text" id="f-vendor" placeholder="請輸入廠商名稱" autocomplete="off" oninput="onVI()" onkeydown="onVK(event)" onfocus="onVI()"><div class="vdd" id="vdd"></div></div>
+    </div>
+    <div class="fg"><label>門店（選填）</label>
+      <select class="fi" id="f-store">
+        <option value="">&#8212;</option>
+        <option value="中山">中山</option>
+        <option value="勤美">勤美</option>
+      </select>
     </div>
     <div class="frow">
       <div class="fg"><label>匯款金額 (NT$) *</label><input class="fi" type="number" id="f-amount" placeholder="0"></div>
@@ -250,11 +268,13 @@ function pl(){
 
 function applyFilter(list){
   var q=document.getElementById('search').value.toLowerCase();
+  var st=document.getElementById('store-filter').value;
   return list.filter(function(r){
     var ms=(r.vendor||'').toLowerCase().indexOf(q)>=0||((r.notes||'')).toLowerCase().indexOf(q)>=0;
     var my=selY==='all'||rY(r)===selY;
     var mm=selM==='all'||rM(r)===selM;
-    return ms&&my&&mm;
+    var mstore=st==='all'||r.store===st;
+    return ms&&my&&mm&&mstore;
   });
 }
 
@@ -276,6 +296,7 @@ function rowHtml(r){
 
   var row='<tr id="row-'+r.id+'">';
   row+='<td class="td-v">'+vendor+'</td>';
+  row+='<td class="td-d">'+(r.store?esc(r.store):'&#8212;')+'</td>';
   row+='<td class="td-d">'+(r.date||'')+'</td>';
   row+='<td class="td-a">'+fmt(r.amount)+'</td>';
   row+='<td><button class="pill '+pc+'" onclick="togglePill('+r.id+',\'payment_done\')">'+pt+'</button></td>';
@@ -443,6 +464,7 @@ function openForm(){
   document.getElementById('m-title').textContent='新增匯款紀錄';
   document.getElementById('btn-save').textContent='新增紀錄';
   document.getElementById('f-vendor').value='';
+  document.getElementById('f-store').value='';
   document.getElementById('f-amount').value='';
   document.getElementById('f-notes').value='';
   document.getElementById('f-date').value='';
@@ -460,6 +482,7 @@ function openEdit(id){
   document.getElementById('m-title').textContent='編輯匯款紀錄';
   document.getElementById('btn-save').textContent='儲存變更';
   document.getElementById('f-vendor').value=r.vendor||'';
+  document.getElementById('f-store').value=r.store||'';
   document.getElementById('f-amount').value=r.amount;
   document.getElementById('f-date').value=r.date||'';
   document.getElementById('f-notes').value=r.notes||'';
@@ -473,12 +496,13 @@ function closeModal(){document.getElementById('modal').style.display='none';}
 
 async function saveRecord(){
   var vendor=document.getElementById('f-vendor').value.trim();
+  var store=document.getElementById('f-store').value||null;
   var amount=Number(document.getElementById('f-amount').value);
   var date=document.getElementById('f-date').value;
   if(!vendor||!amount||!date) return;
   var notes=document.getElementById('f-notes').value.trim();
   var invDate=document.getElementById('f-inv-date').value||null;
-  var rec={vendor:vendor,amount:amount,date:date,payment_done:fPay,invoice_received:fInv,notes:notes,invoice_date:invDate};
+  var rec={vendor:vendor,store:store,amount:amount,date:date,payment_done:fPay,invoice_received:fInv,notes:notes,invoice_date:invDate};
   document.getElementById('btn-save').disabled=true;
   if(editId!==null){
     var res=await sb.from('records').update(rec).eq('id',editId);

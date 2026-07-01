@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PHASE｜請款申請</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#F6F2EB; --card:#FFFFFF; --card2:#FAF8F3; --border:#E2DCD1;
+    --ink:#1B1816; --sub:#8A8378; --accent:#4E5747;
+    --green:#4E5747; --red:#A64B3A; --amber:#9A7338;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:'Noto Sans TC','Inter','Helvetica Neue',-apple-system,sans-serif;
+    background:var(--bg); color:var(--ink); min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.serif{font-family:'Noto Serif TC','Songti TC',serif; font-weight:600;}
+  .header{padding:40px 24px 20px; border-bottom:1px solid var(--border);}
+  .header-sub{font-size:11px; letter-spacing:3px; color:var(--sub); text-transform:uppercase; margin-bottom:8px;}
+  .header h1{font-size:24px; font-weight:600; margin-bottom:6px; letter-spacing:1px;}
+  .header p{font-size:13px; color:var(--sub); letter-spacing:.5px;}
+  .nav-link{font-size:12px; color:var(--sub); text-decoration:none; border:1px solid var(--border); padding:6px 14px; border-radius:2px; display:inline-block; margin-top:16px; letter-spacing:.5px;}
+  .nav-link:hover{color:var(--ink); border-color:var(--ink);}
+
+  .tabs{display:flex; gap:8px; padding:16px 24px 0; flex-wrap:wrap;}
+  .tab{
+    padding:10px 20px; border-radius:2px 2px 0 0; cursor:pointer; letter-spacing:.5px;
+    font-size:13px; color:var(--sub); border:1px solid transparent; border-bottom:none;
+  }
+  .tab.active{background:var(--card); color:var(--ink); border-color:var(--border); font-weight:600;}
+  .main{padding:20px 24px 60px; max-width:920px; margin:0 auto;}
+
+  .panel{display:none;}
+  .panel.active{display:block;}
+
+  .stats{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:20px;}
+  .stat-card{background:var(--card); border:1px solid var(--border); border-radius:3px; padding:18px 20px;}
+  .stat-label{font-size:11px; color:var(--sub); margin-bottom:8px; letter-spacing:1px;}
+  .stat-value{font-size:24px; font-weight:600; color:var(--ink); font-family:'Noto Serif TC',serif;}
+
+  .card{background:var(--card); border:1px solid var(--border); border-radius:3px; padding:24px; margin-bottom:16px;}
+  .card h3{font-size:16px; margin-bottom:18px; color:var(--ink); letter-spacing:.5px;}
+  .form-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .form-grid .full{grid-column:1/-1;}
+  .form-label{font-size:12px; color:var(--sub); margin-bottom:7px; display:block; letter-spacing:.5px;}
+  .form-input, .form-select, textarea{
+    background:var(--card2); border:1px solid var(--border); border-radius:2px;
+    padding:10px 12px; color:var(--ink); font-size:14px; outline:none;
+    font-family:inherit; width:100%;
+  }
+  .form-input:focus, .form-select:focus, textarea:focus{border-color:var(--accent);}
+  textarea{resize:vertical; min-height:60px;}
+  .amount-row{display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;}
+  .amount-total{color:var(--ink); font-weight:600;}
+
+  .btn{
+    border:none; border-radius:2px; padding:11px 24px; cursor:pointer;
+    font-size:14px; font-weight:600; font-family:inherit; letter-spacing:.5px;
+  }
+  .btn-primary{background:var(--ink); color:#F6F2EB;}
+  .btn-primary:disabled{opacity:.4; cursor:not-allowed;}
+  .btn-outline{background:transparent; border:1px solid var(--border); color:var(--sub);}
+  .btn-approve{background:#EEF0EA; border:1px solid var(--accent); color:var(--accent);}
+  .btn-reject{background:#F4EAE6; border:1px solid var(--red); color:var(--red);}
+  .btn-pay{background:var(--ink); border:1px solid var(--ink); color:#F6F2EB;}
+  .btn-sm{padding:8px 16px; font-size:12px; border-radius:2px;}
+
+  .req-card{background:var(--card); border:1px solid var(--border); border-radius:3px; padding:20px; margin-bottom:12px;}
+  .req-top{display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:10px;}
+  .req-title{font-size:16px; font-weight:600; font-family:'Noto Serif TC',serif;}
+  .req-sub{font-size:12px; color:var(--sub); margin-top:2px;}
+  .req-amount{font-size:19px; font-weight:600; color:var(--ink); white-space:nowrap; font-family:'Noto Serif TC',serif;}
+  .req-meta{display:flex; flex-wrap:wrap; gap:8px; font-size:12px; color:var(--sub); margin-bottom:12px;}
+  .req-meta span{background:var(--card2); border:1px solid var(--border); border-radius:2px; padding:4px 9px;}
+  .store-tag{background:var(--ink) !important; color:#F6F2EB !important; border-color:var(--ink) !important; letter-spacing:1px;}
+  .req-actions{display:flex; gap:8px; flex-wrap:wrap;}
+
+  .pill{border-radius:2px; padding:3px 10px; font-size:11px; font-weight:600; letter-spacing:.5px;}
+  .pill-pending{background:#F3ECDD; color:var(--amber);}
+  .pill-approved{background:#ECEEE8; color:var(--accent);}
+  .pill-paid{background:#EEF0EA; color:var(--accent);}
+  .pill-rejected{background:#F4EAE6; color:var(--red);}
+  .pill-invoice-ok{background:#EEF0EA; color:var(--accent);}
+  .pill-invoice-wait{background:#F3ECDD; color:var(--amber);}
+
+  .store-filter{display:flex; gap:8px; margin-bottom:20px;}
+  .chip{background:transparent; border:1px solid var(--border); border-radius:2px; padding:7px 18px; cursor:pointer; font-size:13px; color:var(--sub); font-family:inherit; letter-spacing:1px;}
+  .chip:hover{border-color:var(--ink); color:var(--ink);}
+  .chip.active{background:var(--ink); color:#F6F2EB; border-color:var(--ink);}
+
+  .empty{text-align:center; padding:40px 20px; color:var(--sub); font-size:13px;}
+  .aging{font-size:11px; color:var(--red); margin-left:6px;}
+
+  .thumb{width:64px; height:64px; border-radius:2px; object-fit:cover; border:1px solid var(--border); cursor:pointer;}
+  .thumb-file{width:64px; height:64px; border-radius:2px; border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--sub); text-align:center; padding:4px;}
+  .attach-row{display:flex; gap:8px; flex-wrap:wrap; margin:10px 0;}
+  .attach-link{font-size:11px; color:var(--ink); text-decoration:none; border:1px solid var(--border); border-radius:2px; padding:4px 9px; display:inline-block;}
+
+  @media (max-width:640px){
+    .form-grid, .amount-row, .stats{grid-template-columns:1fr;}
+    .req-top{flex-direction:column;}
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-sub">PHASE · Purchase Request</div>
+  <h1>請款申請</h1>
+  <p>各部門提出申請 → 主管審核 → 財務撥款 → 發票追蹤</p>
+  <a class="nav-link" href="../廠商匯款紀錄_雲端版.html">→ 廠商匯款紀錄</a>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-panel="submit">提出申請</div>
+  <div class="tab" data-panel="review">審核與撥款</div>
+  <div class="tab" data-panel="invoice">發票追蹤</div>
+</div>
+
+<div class="main">
+
+  <!-- 提出申請 -->
+  <div class="panel active" id="panel-submit">
+    <div class="card">
+      <h3>新增請款申請</h3>
+      <div class="form-grid">
+        <div>
+          <label class="form-label">門店</label>
+          <select class="form-select" id="f-store">
+            <option value="中山">中山</option>
+            <option value="勤美">勤美</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">申請人</label>
+          <input class="form-input" id="f-applicant" placeholder="姓名">
+        </div>
+        <div class="full">
+          <label class="form-label">廠商名稱</label>
+          <input class="form-input" id="f-vendor" list="vendor-list" placeholder="輸入或選擇廠商">
+          <datalist id="vendor-list"></datalist>
+        </div>
+        <div class="full">
+          <label class="form-label">品項／用途說明</label>
+          <textarea id="f-purpose" placeholder="例：台中咖啡展 背板輸出費用"></textarea>
+        </div>
+
+        <div class="full">
+          <label class="form-label">金額</label>
+          <input class="form-input amount-total" type="number" id="f-total" placeholder="0">
+        </div>
+
+        <div>
+          <label class="form-label">戶名</label>
+          <input class="form-input" id="f-accname" placeholder="銀行帳戶戶名">
+        </div>
+        <div>
+          <label class="form-label">銀行 / 分行</label>
+          <input class="form-input" id="f-bankname" placeholder="例：台新銀行 大安分行">
+        </div>
+        <div class="full">
+          <label class="form-label">銀行帳號</label>
+          <input class="form-input" id="f-bankaccount" placeholder="請填寫完整帳號">
+        </div>
+
+        <div class="full">
+          <label class="form-label">發票狀態</label>
+          <select class="form-select" id="f-invoice">
+            <option value="後補">發票後補</option>
+            <option value="已附">已取得發票</option>
+            <option value="無發票">無發票</option>
+          </select>
+        </div>
+        <div class="full">
+          <label class="form-label">附件（廠商報價單／匯款資訊，可多選，圖片或 PDF）</label>
+          <input class="form-input" type="file" id="f-files" multiple accept="image/*,.pdf">
+          <div id="file-preview" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;"></div>
+        </div>
+      </div>
+      <div style="margin-top:18px; display:flex; justify-content:flex-end;">
+        <button class="btn btn-primary" id="btn-submit">送出申請</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>我的申請紀錄</h3>
+      <div id="my-requests"><div class="empty">尚無資料</div></div>
+    </div>
+  </div>
+
+  <!-- 審核與撥款 -->
+  <div class="panel" id="panel-review">
+    <div class="stats">
+      <div class="stat-card"><div class="stat-label">待審核</div><div class="stat-value" id="s-pending">—</div></div>
+      <div class="stat-card"><div class="stat-label">已核准待撥款</div><div class="stat-value" id="s-approved">—</div></div>
+      <div class="stat-card"><div class="stat-label">本月已撥款</div><div class="stat-value" id="s-paid">—</div></div>
+    </div>
+
+    <div class="store-filter">
+      <button class="chip active" data-store="全部">全部</button>
+      <button class="chip" data-store="中山">中山</button>
+      <button class="chip" data-store="勤美">勤美</button>
+    </div>
+
+    <!-- 審核區塊 -->
+    <div class="card" id="lock-reviewer">
+      <h3>審核權限驗證</h3>
+      <p style="font-size:13px; color:var(--sub); margin-bottom:14px;">核准／退回申請僅限主管操作，請輸入審核密碼</p>
+      <div style="display:flex; gap:10px;">
+        <input class="form-input" type="password" id="pw-reviewer" placeholder="請輸入審核密碼" style="max-width:240px;">
+        <button class="btn btn-primary" id="btn-unlock-reviewer">解鎖</button>
+      </div>
+      <div id="err-reviewer" style="color:var(--red); font-size:12px; margin-top:8px; display:none;">密碼錯誤，請再試一次</div>
+    </div>
+    <div class="card" id="reviewer-content" style="display:none;">
+      <h3>待審核申請</h3>
+      <div id="list-pending"><div class="empty">目前沒有待審核申請</div></div>
+    </div>
+
+    <!-- 撥款區塊 -->
+    <div class="card" id="lock-finance">
+      <h3>撥款權限驗證</h3>
+      <p style="font-size:13px; color:var(--sub); margin-bottom:14px;">執行撥款、轉入匯款紀錄僅限財務操作，請輸入撥款密碼</p>
+      <div style="display:flex; gap:10px;">
+        <input class="form-input" type="password" id="pw-finance" placeholder="請輸入撥款密碼" style="max-width:240px;">
+        <button class="btn btn-primary" id="btn-unlock-finance">解鎖</button>
+      </div>
+      <div id="err-finance" style="color:var(--red); font-size:12px; margin-top:8px; display:none;">密碼錯誤，請再試一次</div>
+    </div>
+    <div class="card" id="finance-content" style="display:none;">
+      <h3>已核准・待財務撥款</h3>
+      <p style="font-size:12px; color:var(--sub); margin-bottom:12px;">此清單僅顯示「主管已核准」的申請，撥款前請核對匯款帳戶資訊</p>
+      <div id="list-approved"><div class="empty">目前沒有待撥款項目</div></div>
+    </div>
+  </div>
+
+  <!-- 發票追蹤 -->
+  <div class="panel" id="panel-invoice">
+    <div class="card">
+      <h3>待收發票（已撥款但發票未到）</h3>
+      <div id="list-invoice"><div class="empty">目前沒有待收發票</div></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  var SB_URL = "https://knkpxeynkecfsmonmzvi.supabase.co";
+  var SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtua3B4ZXlua2VjZnNtb25tenZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyODUwNDEsImV4cCI6MjA5NDg2MTA0MX0.NUsXfRAEEG2RSeP_uwDGrvWdsuFj--WC6z10u55wiW0";
+  var sb = supabase.createClient(SB_URL, SB_KEY);
+
+  // ---- password gates: 審核人 / 撥款人 分開 ----
+  var REVIEWER_PASSWORD = "82981656";  // 審核密碼，可自行修改
+  var FINANCE_PASSWORD  = "82981656";  // 撥款密碼，可自行修改
+
+  function isReviewerUnlocked(){ return sessionStorage.getItem('phase_reviewer_unlocked')==='1'; }
+  function isFinanceUnlocked(){ return sessionStorage.getItem('phase_finance_unlocked')==='1'; }
+
+  function showGatesIfUnlocked(){
+    if(isReviewerUnlocked()){
+      document.getElementById('lock-reviewer').style.display='none';
+      document.getElementById('reviewer-content').style.display='block';
+    }
+    if(isFinanceUnlocked()){
+      document.getElementById('lock-finance').style.display='none';
+      document.getElementById('finance-content').style.display='block';
+    }
+  }
+
+  document.getElementById('btn-unlock-reviewer').onclick = function(){
+    var pw = document.getElementById('pw-reviewer').value;
+    if(pw === REVIEWER_PASSWORD){
+      sessionStorage.setItem('phase_reviewer_unlocked','1');
+      document.getElementById('err-reviewer').style.display='none';
+      showGatesIfUnlocked();
+    }else{
+      document.getElementById('err-reviewer').style.display='block';
+    }
+  };
+  document.getElementById('btn-unlock-finance').onclick = function(){
+    var pw = document.getElementById('pw-finance').value;
+    if(pw === FINANCE_PASSWORD){
+      sessionStorage.setItem('phase_finance_unlocked','1');
+      document.getElementById('err-finance').style.display='none';
+      showGatesIfUnlocked();
+    }else{
+      document.getElementById('err-finance').style.display='block';
+    }
+  };
+  document.getElementById('pw-reviewer').addEventListener('keydown', function(e){
+    if(e.key==='Enter') document.getElementById('btn-unlock-reviewer').click();
+  });
+  document.getElementById('pw-finance').addEventListener('keydown', function(e){
+    if(e.key==='Enter') document.getElementById('btn-unlock-finance').click();
+  });
+  showGatesIfUnlocked();
+
+  var requests = [];
+  var records = [];
+
+  // ---- tabs ----
+  document.querySelectorAll('.tab').forEach(function(t){
+    t.onclick = function(){
+      document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active');});
+      document.querySelectorAll('.panel').forEach(function(x){x.classList.remove('active');});
+      t.classList.add('active');
+      document.getElementById('panel-'+t.dataset.panel).classList.add('active');
+    };
+  });
+
+  // ---- store filter chips ----
+  document.querySelectorAll('.chip').forEach(function(c){
+    c.onclick = function(){
+      document.querySelectorAll('.chip').forEach(function(x){x.classList.remove('active');});
+      c.classList.add('active');
+      storeFilter = c.dataset.store;
+      renderReview();
+    };
+  });
+
+  // ---- file preview ----
+  document.getElementById('f-files').addEventListener('change', function(e){
+    var preview = document.getElementById('file-preview');
+    preview.innerHTML = '';
+    Array.prototype.forEach.call(e.target.files, function(file){
+      if(file.type.startsWith('image/')){
+        var img = document.createElement('img');
+        img.className = 'thumb';
+        img.src = URL.createObjectURL(file);
+        preview.appendChild(img);
+      }else{
+        var box = document.createElement('div');
+        box.className = 'thumb-file';
+        box.textContent = file.name.length>14 ? file.name.slice(0,12)+'…' : file.name;
+        preview.appendChild(box);
+      }
+    });
+  });
+
+  // ---- upload attachments to Supabase Storage ----
+  async function uploadAttachments(fileList){
+    var urls = [];
+    for(var i=0;i<fileList.length;i++){
+      var file = fileList[i];
+      var safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_');
+      var path = Date.now()+'_'+i+'_'+safeName;
+      var up = await sb.storage.from('attachments').upload(path, file);
+      if(up.error){ console.error('upload error', up.error); continue; }
+      var pub = sb.storage.from('attachments').getPublicUrl(path);
+      urls.push(pub.data.publicUrl);
+    }
+    return urls;
+  }
+
+  // ---- vendor list (shared with payment tracker) ----
+  async function loadVendors(){
+    try{
+      var res = await sb.from('vendors').select('name').order('name',{ascending:true});
+      if(res.error) throw res.error;
+      var dl = document.getElementById('vendor-list');
+      dl.innerHTML = (res.data||[]).map(function(v){return '<option value="'+v.name+'">';}).join('');
+    }catch(e){ console.error('vendor load error', e); }
+  }
+
+  async function ensureVendor(name){
+    if(!name || !name.trim()) return;
+    try{
+      var res = await sb.from('vendors').select('name').eq('name', name.trim());
+      if(res.data && res.data.length===0){
+        await sb.from('vendors').insert([{name:name.trim()}]);
+      }
+    }catch(e){ console.error('vendor ensure error', e); }
+  }
+
+  // ---- submit request ----
+  document.getElementById('btn-submit').onclick = async function(){
+    var store = document.getElementById('f-store').value;
+    var applicant = document.getElementById('f-applicant').value.trim();
+    var vendor = document.getElementById('f-vendor').value.trim();
+    var purpose = document.getElementById('f-purpose').value.trim();
+    var total = parseFloat(document.getElementById('f-total').value)||0;
+    var accname = document.getElementById('f-accname').value.trim();
+    var bankname = document.getElementById('f-bankname').value.trim();
+    var bankaccount = document.getElementById('f-bankaccount').value.trim();
+    var invoiceStatus = document.getElementById('f-invoice').value;
+
+    if(!applicant || !vendor || !purpose || !total){
+      alert('請至少填寫：申請人、廠商名稱、用途說明、金額');
+      return;
+    }
+
+    var btn = document.getElementById('btn-submit');
+    btn.disabled = true; btn.textContent = '送出中...';
+
+    try{
+      await ensureVendor(vendor);
+
+      var files = document.getElementById('f-files').files;
+      var attachmentUrls = [];
+      if(files && files.length){
+        btn.textContent = '上傳附件中...';
+        attachmentUrls = await uploadAttachments(files);
+      }
+
+      var res = await sb.from('requests').insert([{
+        store: store, applicant: applicant, vendor: vendor, purpose: purpose,
+        amount_total: total,
+        account_name: accname, bank_name: bankname, bank_account: bankaccount,
+        invoice_status: invoiceStatus, status: '待審核',
+        attachment_urls: attachmentUrls
+      }]);
+      if(res.error) throw res.error;
+
+      ['f-applicant','f-vendor','f-purpose','f-total','f-accname','f-bankname','f-bankaccount']
+        .forEach(function(id){ document.getElementById(id).value=''; });
+      document.getElementById('f-files').value = '';
+      document.getElementById('file-preview').innerHTML = '';
+
+      alert('申請已送出，等待主管審核');
+    }catch(e){
+      console.error(e);
+      alert('送出失敗，請確認 Supabase 資料表與 Storage bucket 已建立（見部署說明）');
+    }
+    btn.disabled = false; btn.textContent = '送出申請';
+  };
+
+  // ---- fmt ----
+  function fmt(n){ return 'NT$ ' + (Math.round(n||0)).toLocaleString(); }
+  function daysSince(dateStr){
+    if(!dateStr) return 0;
+    var d = new Date(dateStr); var now = new Date();
+    return Math.floor((now-d)/(1000*60*60*24));
+  }
+
+  // ---- render: my requests (all, most recent first) ----
+  function renderMyRequests(){
+    var el = document.getElementById('my-requests');
+    if(!requests.length){ el.innerHTML = '<div class="empty">尚無資料</div>'; return; }
+    var sorted = requests.slice().sort(function(a,b){ return new Date(b.created_at)-new Date(a.created_at); });
+    el.innerHTML = sorted.map(reqCardHtml).join('');
+  }
+
+  function statusPill(status){
+    var map = {
+      '待審核': '<span class="pill pill-pending">待審核</span>',
+      '已核准': '<span class="pill pill-approved">已核准</span>',
+      '已撥款': '<span class="pill pill-paid">已撥款</span>',
+      '已退回': '<span class="pill pill-rejected">已退回</span>'
+    };
+    return map[status] || status;
+  }
+
+  function reqCardHtml(r, opts){
+    opts = opts || {};
+    var actions = '';
+    if(opts.showApprove){
+      actions = '<div class="req-actions">'
+        + '<button class="btn btn-approve btn-sm" onclick="approveReq('+r.id+')">核准</button>'
+        + '<button class="btn btn-reject btn-sm" onclick="rejectReq('+r.id+')">退回</button>'
+        + '</div>';
+    } else if(opts.showPay){
+      actions = '<div class="req-actions">'
+        + '<button class="btn btn-pay btn-sm" onclick="payReq('+r.id+')">標記已撥款並轉入匯款紀錄</button>'
+        + '</div>';
+    }
+    if(r.status==='已撥款'){
+      actions += '<div class="req-actions">'
+        + '<button class="btn btn-outline btn-sm" onclick="copyNotify('+r.id+')">📋 複製通知廠商訊息</button>'
+        + '</div>';
+    }
+    return '<div class="req-card">'
+      + '<div class="req-top">'
+      +   '<div><div class="req-title">'+r.vendor+'</div><div class="req-sub">'+r.purpose+'</div></div>'
+      +   '<div class="req-amount">'+fmt(r.amount_total)+'</div>'
+      + '</div>'
+      + '<div class="req-meta">'
+      +   (r.store ? '<span class="store-tag">'+r.store+'</span>' : '')
+      +   '<span>'+r.applicant+'</span>'
+      +   '<span>發票：'+r.invoice_status+'</span>'
+      +   '<span>'+statusPill(r.status)+'</span>'
+      + '</div>'
+      + (opts.showBank ? bankInfoHtml(r) : '')
+      + attachHtml(r.attachment_urls)
+      + actions
+      + '</div>';
+  }
+
+  function bankInfoHtml(r){
+    return '<div class="req-meta">'
+      +   '<span>戶名：'+(r.account_name||'—')+'</span>'
+      +   '<span>銀行：'+(r.bank_name||'—')+'</span>'
+      +   '<span>帳號：'+(r.bank_account||'—')+'</span>'
+      + '</div>';
+  }
+
+  function attachHtml(urls){
+    if(!urls || !urls.length) return '';
+    var isImg = function(u){ return /\.(png|jpe?g|gif|webp)$/i.test(u); };
+    var items = urls.map(function(u){
+      if(isImg(u)){
+        return '<a href="'+u+'" target="_blank"><img class="thumb" src="'+u+'"></a>';
+      }
+      return '<a class="attach-link" href="'+u+'" target="_blank">查看附件</a>';
+    }).join('');
+    return '<div class="attach-row">'+items+'</div>';
+  }
+
+  // ---- store filter state ----
+  var storeFilter = '全部';
+  function matchStore(r){ return storeFilter==='全部' || r.store===storeFilter; }
+
+  // ---- render: review panels ----
+  function renderReview(){
+    var scoped = requests.filter(matchStore);
+    var pending = scoped.filter(function(r){ return r.status==='待審核'; });
+    var approved = scoped.filter(function(r){ return r.status==='已核准'; });
+
+    document.getElementById('s-pending').textContent = pending.length+' 筆';
+    document.getElementById('s-approved').textContent = approved.length+' 筆';
+
+    var now = new Date();
+    var paidThisMonth = scoped.filter(function(r){
+      if(r.status!=='已撥款' || !r.updated_at) return false;
+      var d = new Date(r.updated_at);
+      return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth();
+    });
+    var paidTotal = paidThisMonth.reduce(function(s,r){ return s+(+r.amount_total||0); },0);
+    document.getElementById('s-paid').textContent = fmt(paidTotal);
+
+    var pEl = document.getElementById('list-pending');
+    pEl.innerHTML = pending.length
+      ? pending.sort(function(a,b){return new Date(a.created_at)-new Date(b.created_at);})
+               .map(function(r){ return reqCardHtml(r, {showApprove:true}); }).join('')
+      : '<div class="empty">目前沒有待審核申請</div>';
+
+    var aEl = document.getElementById('list-approved');
+    aEl.innerHTML = approved.length
+      ? approved.sort(function(a,b){return new Date(a.created_at)-new Date(b.created_at);})
+                .map(function(r){ return reqCardHtml(r, {showPay:true, showBank:true}); }).join('')
+      : '<div class="empty">目前沒有待撥款項目</div>';
+  }
+
+  // ---- render: invoice tracking (from records table, invoice_received=false) ----
+  function renderInvoiceTracking(){
+    var pending = records.filter(function(r){ return !r.invoice_received; });
+    var el = document.getElementById('list-invoice');
+    if(!pending.length){ el.innerHTML = '<div class="empty">目前沒有待收發票</div>'; return; }
+    el.innerHTML = pending.sort(function(a,b){return new Date(a.date||a.created_at)-new Date(b.date||b.created_at);})
+      .map(function(r){
+        var d = daysSince(r.date || r.created_at);
+        var agingHtml = d>=14 ? '<span class="aging">已逾 '+d+' 天</span>' : '<span class="req-sub">'+d+' 天前付款</span>';
+        return '<div class="req-card">'
+          + '<div class="req-top">'
+          +   '<div><div class="req-title">'+(r.vendor||'—')+'</div>'+agingHtml+'</div>'
+          +   '<div class="req-amount">'+fmt(r.amount)+'</div>'
+          + '</div>'
+          + '<div class="req-meta">'
+          +   (r.store ? '<span class="store-tag">'+r.store+'</span>' : '')
+          +   '<span>'+(r.category||'—')+'</span>'
+          +   '<span class="pill pill-invoice-wait">發票待收</span>'
+          + '</div>'
+          + '</div>';
+      }).join('');
+  }
+
+  // ---- actions ----
+  window.copyNotify = function(id){
+    var r = requests.find(function(x){ return x.id===id; });
+    if(!r) return;
+    var today = new Date().toISOString().slice(0,10);
+    var msg = r.vendor+' 您好，款項 '+fmt(r.amount_total)+'（'+r.purpose+'）已於 '+today+' 匯出，請查收，謝謝。';
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(msg).then(function(){
+        alert('已複製通知文字，可直接貼到 LINE 傳給廠商：\n\n'+msg);
+      }).catch(function(){
+        prompt('複製失敗，請手動複製：', msg);
+      });
+    }else{
+      prompt('請手動複製以下文字：', msg);
+    }
+  };
+
+  window.approveReq = async function(id){
+    if(!isReviewerUnlocked()){ alert('請先輸入審核密碼'); return; }
+    await sb.from('requests').update({status:'已核准', updated_at:new Date().toISOString()}).eq('id', id);
+  };
+  window.rejectReq = async function(id){
+    if(!isReviewerUnlocked()){ alert('請先輸入審核密碼'); return; }
+    var note = prompt('退回原因（選填）：') || '';
+    await sb.from('requests').update({status:'已退回', approver_note:note, updated_at:new Date().toISOString()}).eq('id', id);
+  };
+  window.payReq = async function(id){
+    if(!isFinanceUnlocked()){ alert('請先輸入撥款密碼'); return; }
+    var r = requests.find(function(x){ return x.id===id; });
+    if(!r) return;
+    if(r.status !== '已核准'){ alert('此申請尚未經主管核准，無法撥款'); return; }
+    var confirmMsg = '請核對匯款資訊：\n\n'
+      + '門店：'+(r.store||'—')+'\n'
+      + '廠商：'+r.vendor+'\n'
+      + '戶名：'+(r.account_name||'—')+'\n'
+      + '銀行：'+(r.bank_name||'—')+'\n'
+      + '帳號：'+(r.bank_account||'—')+'\n'
+      + '金額：'+fmt(r.amount_total)+'\n\n'
+      + '確認已完成匯款？將自動轉入「廠商匯款紀錄」。';
+    if(!confirm(confirmMsg)) return;
+    try{
+      var insertRes = await sb.from('records').insert([{
+        store: r.store,
+        vendor: r.vendor,
+        amount: r.amount_total,
+        category: '其他支出',
+        date: new Date().toISOString().slice(0,10),
+        payment_done: true,
+        invoice_received: (r.invoice_status==='已附' || r.invoice_status==='無發票'),
+        notes: '來自請款申請：'+r.purpose+'（'+(r.store||'')+' / 申請人：'+r.applicant+'）'
+      }]).select();
+      if(insertRes.error) throw insertRes.error;
+      var newRecordId = insertRes.data && insertRes.data[0] && insertRes.data[0].id;
+      await sb.from('requests').update({
+        status:'已撥款', payment_record_id:newRecordId, updated_at:new Date().toISOString()
+      }).eq('id', id);
+    }catch(e){
+      console.error(e);
+      alert('轉入失敗，請確認 records 資料表欄位是否相符');
+    }
+  };
+
+  // ---- load & realtime ----
+  async function loadRequests(){
+    try{
+      var res = await sb.from('requests').select('*').order('created_at',{ascending:false});
+      if(res.error) throw res.error;
+      requests = res.data || [];
+    }catch(e){ console.error('requests load error', e); }
+    renderMyRequests(); renderReview();
+  }
+  async function loadRecords(){
+    try{
+      var res = await sb.from('records').select('*');
+      if(res.error) throw res.error;
+      records = res.data || [];
+    }catch(e){ console.error('records load error', e); }
+    renderInvoiceTracking();
+  }
+
+  sb.channel('req-ch').on('postgres_changes',{event:'*',schema:'public',table:'requests'},loadRequests).subscribe();
+  sb.channel('rec-ch').on('postgres_changes',{event:'*',schema:'public',table:'records'},loadRecords).subscribe();
+
+  loadVendors();
+  loadRequests();
+  loadRecords();
+</script>
+
+</body>
+</html>
