@@ -490,24 +490,31 @@
       +   '<div><div class="req-title">'+r.vendor+'</div><div class="req-sub">'+r.purpose+'</div></div>'
       +   '<div class="req-amount">'+fmt(r.amount_total)+'</div>'
       + '</div>'
-      + '<div class="req-fields">'
-      +   '<div class="req-field"><span class="req-field-label">門店</span><span class="req-field-val">'+(r.store||'—')+'</span></div>'
-      +   '<div class="req-field"><span class="req-field-label">申請人</span><span class="req-field-val">'+r.applicant+'</span></div>'
-      +   '<div class="req-field"><span class="req-field-label">發票</span><span class="req-field-val">'+r.invoice_status+'</span></div>'
-      +   '<div class="req-field"><span class="req-field-label">狀態</span><span class="req-field-val">'+statusPill(r.status)+'</span></div>'
-      + '</div>'
+      + fieldsHtml([
+          ['門店', r.store],
+          ['申請人', r.applicant],
+          ['發票', r.invoice_status],
+          ['狀態', statusPill(r.status)]
+        ])
       + (opts.showBank ? bankInfoHtml(r) : '')
       + attachHtml(r.attachment_urls)
       + actions
       + '</div>';
   }
 
+  function fieldsHtml(pairs){
+    var cells = pairs.filter(function(p){ return p[1]; })
+      .map(function(p){ return '<div class="req-field"><span class="req-field-label">'+p[0]+'</span><span class="req-field-val">'+p[1]+'</span></div>'; })
+      .join('');
+    return cells ? '<div class="req-fields">'+cells+'</div>' : '';
+  }
+
   function bankInfoHtml(r){
-    return '<div class="req-fields">'
-      +   '<div class="req-field"><span class="req-field-label">戶名</span><span class="req-field-val">'+(r.account_name||'—')+'</span></div>'
-      +   '<div class="req-field"><span class="req-field-label">銀行</span><span class="req-field-val">'+(r.bank_name||'—')+'</span></div>'
-      +   '<div class="req-field"><span class="req-field-label">帳號</span><span class="req-field-val">'+(r.bank_account||'—')+'</span></div>'
-      + '</div>';
+    return fieldsHtml([
+      ['戶名', r.account_name],
+      ['銀行', r.bank_name],
+      ['帳號', r.bank_account]
+    ]);
   }
 
   function attachHtml(urls){
