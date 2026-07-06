@@ -674,6 +674,7 @@
       +   '<div class="req-amount">'+fmt(r.amount_total)+'</div>'
       + '</div>'
       + fieldsHtml([
+          ['申請日期', (r.created_at||'').slice(0,10)],
           ['門店', r.store],
           ['申請人', r.applicant],
           ['發票', r.invoice_status],
