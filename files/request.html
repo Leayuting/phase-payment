@@ -847,7 +847,7 @@
       amount: r.amount_total,
       date: new Date().toISOString().slice(0,10),
       payment_done: true,
-      invoice_received: (r.invoice_status!=='後補'),
+      invoice_received: (r.invoice_status==='電子發票已上傳' || r.invoice_status==='無憑證'),
       notes: '來自請款申請：'+r.purpose+'（'+(r.store||'')+' / 申請人：'+r.applicant+'）'
     }]).select();
     if(insertRes.error) throw insertRes.error;
