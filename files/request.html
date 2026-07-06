@@ -186,6 +186,7 @@
         <div class="full">
           <label class="form-label">發票狀態 *</label>
           <select class="form-select" id="f-invoice">
+            <option value="" disabled selected>請選擇</option>
             <option value="無憑證">無憑證</option>
             <option value="後補">發票後補</option>
             <option value="紙本發票親交">紙本發票親交</option>
@@ -495,6 +496,7 @@
     editingId = null;
     ['f-vendor','f-purpose','f-total','f-accname','f-bankname','f-bankaccount']
       .forEach(function(id){ document.getElementById(id).value=''; });
+    document.getElementById('f-invoice').value = '';
     document.getElementById('f-files').value = '';
     pendingFiles = [];
     renderFilePreview();
