@@ -395,23 +395,38 @@
   wireStoreChips('review-store-filter', function(v){ storeFilter = v; renderReview(); });
   wireStoreChips('invoice-store-filter', function(v){ invoiceStoreFilter = v; renderInvoiceTracking(); });
 
-  // ---- file preview ----
-  document.getElementById('f-files').addEventListener('change', function(e){
+  // ---- file preview（多次選檔會累加，不會蓋掉前面選的檔案） ----
+  var pendingFiles = [];
+  function renderFilePreview(){
     var preview = document.getElementById('file-preview');
     preview.innerHTML = '';
-    Array.prototype.forEach.call(e.target.files, function(file){
+    pendingFiles.forEach(function(file, idx){
+      var wrap = document.createElement('div');
+      wrap.style.position = 'relative';
+      var el;
       if(file.type.startsWith('image/')){
-        var img = document.createElement('img');
-        img.className = 'thumb';
-        img.src = URL.createObjectURL(file);
-        preview.appendChild(img);
+        el = document.createElement('img');
+        el.className = 'thumb';
+        el.src = URL.createObjectURL(file);
       }else{
-        var box = document.createElement('div');
-        box.className = 'thumb-file';
-        box.textContent = file.name.length>14 ? file.name.slice(0,12)+'…' : file.name;
-        preview.appendChild(box);
+        el = document.createElement('div');
+        el.className = 'thumb-file';
+        el.textContent = file.name.length>14 ? file.name.slice(0,12)+'…' : file.name;
       }
+      wrap.appendChild(el);
+      var rm = document.createElement('div');
+      rm.textContent = '×';
+      rm.title = '移除這個檔案';
+      rm.style.cssText = 'position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:var(--ink);color:#fff;font-size:12px;line-height:18px;text-align:center;cursor:pointer;';
+      rm.onclick = function(){ pendingFiles.splice(idx,1); renderFilePreview(); };
+      wrap.appendChild(rm);
+      preview.appendChild(wrap);
     });
+  }
+  document.getElementById('f-files').addEventListener('change', function(e){
+    Array.prototype.forEach.call(e.target.files, function(file){ pendingFiles.push(file); });
+    e.target.value = '';
+    renderFilePreview();
   });
 
   // ---- upload attachments to Supabase Storage ----
@@ -477,7 +492,8 @@
     ['f-vendor','f-purpose','f-total','f-accname','f-bankname','f-bankaccount']
       .forEach(function(id){ document.getElementById(id).value=''; });
     document.getElementById('f-files').value = '';
-    document.getElementById('file-preview').innerHTML = '';
+    pendingFiles = [];
+    renderFilePreview();
     document.getElementById('btn-submit').textContent = '送出申請';
     document.getElementById('submit-form-title').textContent = '新增請款申請';
     document.getElementById('btn-cancel-edit').style.display = 'none';
@@ -497,7 +513,8 @@
     document.getElementById('f-bankname').value = r.bank_name || '';
     document.getElementById('f-bankaccount').value = r.bank_account || '';
     document.getElementById('f-invoice').value = r.invoice_status || '後補';
-    document.getElementById('file-preview').innerHTML = '';
+    pendingFiles = [];
+    renderFilePreview();
     document.getElementById('submit-form-title').textContent = '編輯請款申請';
     document.getElementById('btn-submit').textContent = '儲存變更';
     document.getElementById('btn-cancel-edit').style.display = 'inline-block';
@@ -511,6 +528,15 @@
     if(r.applicant!==getMyName()){ alert('只能取消自己的申請'); return; }
     if(!confirm('確定要取消這筆申請嗎？')) return;
     await sb.from('requests').update({status:'已取消', updated_at:new Date().toISOString()}).eq('id', id);
+  };
+  window.deleteMyRequest = async function(id){
+    var r = requests.find(function(x){ return x.id===id; });
+    if(!r) return;
+    if(r.status!=='待審核' && r.status!=='已退回' && r.status!=='已取消'){ alert('已核准或已撥款的申請不能刪除，避免破壞紀錄'); return; }
+    if(r.applicant!==getMyName()){ alert('只能刪除自己的申請'); return; }
+    if(!confirm('確定要永久刪除這筆申請紀錄嗎？此動作無法復原。')) return;
+    var res = await sb.from('requests').delete().eq('id', id);
+    if(res.error){ console.error(res.error); alert('刪除失敗：'+res.error.message); }
   };
 
   // ---- 提出申請 / 儲存編輯 ----
@@ -545,13 +571,12 @@
     try{
       await ensureVendor(vendor);
 
-      var files = document.getElementById('f-files').files;
       var attachmentUrls = editingId!==null
         ? (requests.find(function(x){return x.id===editingId;}).attachment_urls || []).slice()
         : [];
-      if(files && files.length){
+      if(pendingFiles.length){
         btn.textContent = '上傳附件中...';
-        attachmentUrls = attachmentUrls.concat(await uploadAttachments(files));
+        attachmentUrls = attachmentUrls.concat(await uploadAttachments(pendingFiles));
       }
 
       var payload = {
@@ -626,11 +651,18 @@
         + '<button class="btn btn-outline btn-sm" onclick="copyNotify('+r.id+')">📋 複製通知廠商訊息</button>'
         + '</div>';
     }
-    if(opts.mine && r.status==='待審核' && r.applicant===getMyName()){
-      actions += '<div class="req-actions">'
-        + '<button class="btn btn-outline btn-sm" onclick="editMyRequest('+r.id+')">✎ 編輯</button>'
-        + '<button class="btn btn-reject btn-sm" onclick="cancelMyRequest('+r.id+')">取消申請</button>'
-        + '</div>';
+    if(opts.mine && r.applicant===getMyName()){
+      if(r.status==='待審核'){
+        actions += '<div class="req-actions">'
+          + '<button class="btn btn-outline btn-sm" onclick="editMyRequest('+r.id+')">✎ 編輯</button>'
+          + '<button class="btn btn-reject btn-sm" onclick="cancelMyRequest('+r.id+')">取消申請</button>'
+          + '</div>';
+      }
+      if(r.status==='待審核' || r.status==='已退回' || r.status==='已取消'){
+        actions += '<div class="req-actions">'
+          + '<button class="btn btn-reject btn-sm" onclick="deleteMyRequest('+r.id+')">🗑 刪除紀錄</button>'
+          + '</div>';
+      }
     }
     return '<div class="req-card">'
       + '<div class="req-top">'
