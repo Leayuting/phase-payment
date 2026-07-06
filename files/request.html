@@ -187,8 +187,9 @@
           <label class="form-label">發票狀態 *</label>
           <select class="form-select" id="f-invoice">
             <option value="後補">發票後補</option>
-            <option value="已附">已取得發票</option>
-            <option value="無發票">無發票</option>
+            <option value="電子發票已上傳">電子發票已上傳</option>
+            <option value="紙本發票親交">紙本發票親交</option>
+            <option value="無憑證">無憑證</option>
           </select>
         </div>
         <div class="full">
@@ -846,7 +847,7 @@
       amount: r.amount_total,
       date: new Date().toISOString().slice(0,10),
       payment_done: true,
-      invoice_received: (r.invoice_status==='已附' || r.invoice_status==='無發票'),
+      invoice_received: (r.invoice_status!=='後補'),
       notes: '來自請款申請：'+r.purpose+'（'+(r.store||'')+' / 申請人：'+r.applicant+'）'
     }]).select();
     if(insertRes.error) throw insertRes.error;
