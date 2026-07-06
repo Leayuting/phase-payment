@@ -819,8 +819,10 @@
   window.copyNotify = function(id){
     var r = requests.find(function(x){ return x.id===id; });
     if(!r) return;
-    var today = new Date().toISOString().slice(0,10);
-    var msg = r.vendor+' 您好，款項 '+fmt(r.amount_total)+'（'+r.purpose+'）已於 '+today+' 匯出，請查收，謝謝。';
+    var last5Map = {'中山':'58612', '勤美':'19295'};
+    var last5 = last5Map[r.store] || '＿＿＿';
+    var amount = Math.round(r.amount_total||0).toLocaleString();
+    var msg = '您好,款項今天已經匯過去了,金額 NT$ '+amount+',後五碼'+last5+'再麻煩您方便時確認一下入帳。\n\n有任何問題再跟我說,謝謝!\n\nPHASE';
     if(navigator.clipboard && navigator.clipboard.writeText){
       navigator.clipboard.writeText(msg).then(function(){
         alert('已複製通知文字，可直接貼到 LINE 傳給廠商：\n\n'+msg);
