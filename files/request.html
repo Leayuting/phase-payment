@@ -30,6 +30,7 @@
     font-size:13px; color:var(--sub); border:1px solid var(--border); background:var(--bg);
   }
   .tab.active{background:var(--ink); color:#F6F2EB; border-color:var(--ink); font-weight:700;}
+  .tab-badge{display:none; min-width:18px; height:18px; padding:0 5px; margin-left:6px; border-radius:10px; background:var(--red); color:#fff; font-size:11px; font-weight:700; text-align:center; line-height:18px; vertical-align:middle;}
   .main{padding:20px 24px 60px; max-width:920px; margin:0 auto;}
 
   .panel{display:none;}
@@ -130,7 +131,7 @@
 
 <div class="tabs">
   <div class="tab active" data-panel="submit">提出申請</div>
-  <div class="tab" data-panel="review">審核與撥款</div>
+  <div class="tab" data-panel="review">審核與撥款<span class="tab-badge" id="tab-badge-review"></span></div>
   <div class="tab" data-panel="invoice">發票追蹤</div>
 </div>
 
@@ -724,6 +725,11 @@
 
     document.getElementById('s-pending').textContent = pending.length+' 筆';
     document.getElementById('s-approved').textContent = approved.length+' 筆';
+
+    var allPendingCount = requests.filter(function(r){ return r.status==='待審核'; }).length;
+    var badge = document.getElementById('tab-badge-review');
+    badge.textContent = allPendingCount;
+    badge.style.display = allPendingCount ? 'inline-block' : 'none';
 
     var now = new Date();
     var paidThisMonth = scoped.filter(function(r){
