@@ -784,7 +784,8 @@
           + '</div>'
           + '<div class="invoice-upload-row">'
           +   '<input type="file" class="form-input" id="inv-file-'+r.id+'" accept="image/*,.pdf">'
-          +   '<button class="btn btn-approve btn-sm" onclick="uploadInvoice('+r.id+')">上傳發票並標記完成</button>'
+          +   '<button class="btn btn-approve btn-sm" onclick="uploadInvoice('+r.id+')">上傳電子檔並標記完成</button>'
+          +   '<button class="btn btn-outline btn-sm" onclick="confirmPaperInvoice('+r.id+')">紙本發票親交，標記完成</button>'
           + '</div>'
           + '</div>';
       }).join('');
@@ -811,8 +812,17 @@
     }catch(e){
       console.error(e);
       alert('上傳失敗，請確認 records 資料表是否已新增 invoice_file_url 欄位：\n'+(e.message||e));
-      btn.disabled = false; btn.textContent = '上傳發票並標記完成';
+      btn.disabled = false; btn.textContent = '上傳電子檔並標記完成';
     }
+  };
+
+  window.confirmPaperInvoice = async function(id){
+    if(!confirm('確認已收到紙本發票並完成親交？')) return;
+    var res = await sb.from('records').update({
+      invoice_received: true,
+      invoice_date: new Date().toISOString().slice(0,10)
+    }).eq('id', id);
+    if(res.error){ console.error(res.error); alert('標記失敗：'+res.error.message); }
   };
 
   // ---- actions ----
