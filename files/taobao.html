@@ -234,6 +234,7 @@ const esc = s => String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','
 const n0 = v => (Math.round(+v||0)).toLocaleString('en-US');
 const n1 = v => (+v||0).toLocaleString('en-US',{minimumFractionDigits:1,maximumFractionDigits:1});
 const n2 = v => (+v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const mdFmt = d => { const m=String(d||'').match(/^\d{4}-(\d{2})-(\d{2})/); return m?m[1]+'/'+m[2]:''; };
 
 /* ── tabs ── */
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
@@ -253,7 +254,7 @@ async function init(){
 
 async function loadAll(){
   const [o,i,b,st] = await Promise.all([
-    db.from('taobao_orders').select('*').order('order_date',{ascending:false}).order('id',{ascending:false}),
+    db.from('taobao_orders').select('*').order('order_date',{ascending:true}).order('id',{ascending:true}),
     db.from('taobao_items').select('*').order('id'),
     db.from('taobao_batches').select('*').order('arrive_date',{ascending:false}).order('id',{ascending:false}),
     db.from('taobao_settings').select('*')
@@ -335,7 +336,7 @@ function renderOrders(){
     ).join('');
     return `<tr>
       <td><input type="checkbox" ${selOrders.has(o.id)?'checked':''} onchange="toggleSel(${o.id},this.checked)"></td>
-      <td class="num">${esc(o.order_date||'')}</td>
+      <td class="num">${mdFmt(o.order_date)}</td>
       <td class="num" style="font-size:12px">${esc(o.order_no)}</td>
       <td><input class="pname-input iname" value="${esc(o.shop_name||'')}" onchange="setShopName(${o.id},this.value)"></td>
       <td class="r num">${n2(o.total_rmb)}</td>
@@ -493,6 +494,10 @@ function renderCosts(){
     (!kw||(i.product_name||'').toLowerCase().includes(kw)||(i.spec||'').toLowerCase().includes(kw)) &&
     (bsel.value===''||(bsel.value==='none'?!i.batch_id:String(i.batch_id)===bsel.value)) &&
     (!cm||orderById(i.order_id)?.month===cm));
+  list=list.slice().sort((a,b)=>{
+    const da=orderById(a.order_id)?.order_date||'', db_=orderById(b.order_id)?.order_date||'';
+    return da<db_?-1:da>db_?1:a.id-b.id;
+  });
   if(!list.length){ $('costsWrap').innerHTML='<div class="empty">沒有品項。先到「匯入訂單」把淘寶匯出檔匯進來。</div>'; return; }
   let tG=0,tF=0,tL=0;
   const rows=list.map(i=>{
@@ -501,7 +506,7 @@ function renderCosts(){
     tG+=g;tF+=f;tL+=l;
     const est=!(o&&o.paid_twd!=null&&o.paid_twd!=='');
     return `<tr>
-      <td class="num">${esc(o?(o.order_date||''):'')}</td>
+      <td class="num">${mdFmt(o?o.order_date:'')}</td>
       <td class="pname"><input class="pname-input" value="${esc(i.product_name)}" onchange="setProductName(${i.id},this.value)">${i.spec?' <span style="color:var(--slate)">'+esc(i.spec)+'</span>':''}</td>
       <td class="r num">${q}</td>
       <td class="r num">${n2(i.subtotal_rmb)}</td>
@@ -537,7 +542,7 @@ function exportCosts(){
 /* ── 匯入 ── */
 const FIELDS=[
   {k:'order_no', t:'訂單編號 *', keys:['订单编号','訂單編號','订单号','主订单编号']},
-  {k:'order_date', t:'下單時間', keys:['订单创建时间','下单时间','拍下时间','订单付款时间','創建時間']},
+  {k:'order_date', t:'下單時間', keys:['订单提交时间','订单创建时间','下单时间','拍下时间','订单付款时间','創建時間']},
   {k:'shop', t:'店鋪', keys:['店铺名称','卖家会员名','卖家昵称','店鋪名稱','商家名称']},
   {k:'product', t:'商品名稱 *', keys:['商品标题','商品名称','宝贝标题','商品名稱','标题']},
   {k:'spec', t:'規格/顏色', keys:['商品属性','颜色分类','规格','sku','套餐信息','商品規格']},
