@@ -236,6 +236,8 @@ const n0 = v => (Math.round(+v||0)).toLocaleString('en-US');
 const n1 = v => (+v||0).toLocaleString('en-US',{minimumFractionDigits:1,maximumFractionDigits:1});
 const n2 = v => (+v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const mdFmt = d => { const m=String(d||'').match(/^\d{4}-(\d{2})-(\d{2})/); return m?m[1]+'/'+m[2]:''; };
+const qtyNum = q => { const n=parseFloat(q); return (!isNaN(n)&&n>0) ? n : 1; };
+const qtyShow = q => (q==null||q==='') ? '1' : String(q);
 
 /* ── tabs ── */
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
@@ -341,7 +343,7 @@ function renderOrders(){
     const off=rate&&(rate<3.8||rate>5.2);
     const its=S.items.filter(i=>i.order_id===o.id);
     const itxt=its.map(i=>
-      `<span style="display:inline-flex;align-items:center;margin:0 6px 4px 0"><input class="pname-input iname" value="${esc(i.product_name)}" onchange="setProductName(${i.id},this.value)">${i.spec?' <span class="mn">('+esc(i.spec)+')</span>':''} <span class="mn">&nbsp;×</span><input type="number" class="mini" min="1" step="1" style="width:44px;padding:2px 4px" value="${+i.qty||1}" onchange="setQty(${i.id},this.value)"></span>`
+      `<span style="display:inline-flex;align-items:center;margin:0 6px 4px 0"><input class="pname-input iname" value="${esc(i.product_name)}" onchange="setProductName(${i.id},this.value)">${i.spec?' <span class="mn">('+esc(i.spec)+')</span>':''} <span class="mn">&nbsp;×</span><input type="text" class="mini" style="width:50px;text-align:left" value="${esc(qtyShow(i.qty))}" onchange="setQty(${i.id},this.value)"></span>`
     ).join('');
     return `<tr>
       <td><input type="checkbox" ${selOrders.has(o.id)?'checked':''} onchange="toggleSel(${o.id},this.checked)"></td>
@@ -427,7 +429,7 @@ function renderBatches(){
       const o=orderById(i.order_id);
       return `<tr><td class="pname">${esc(i.product_name)}${i.spec?' <span style="color:var(--slate)">'+esc(i.spec)+'</span>':''}</td>
         <td class="num" style="font-size:12px">${esc(o?o.order_no:'')}</td>
-        <td class="r num">${+i.qty||1}</td>
+        <td class="r num">${esc(qtyShow(i.qty))}</td>
         <td class="r num">${n2(i.subtotal_rmb)}</td>
         <td class="r num">${n0(feeShare(i))}</td>
         <td><button class="btn-x" onclick="unassign(${i.id})">移出</button></td></tr>`;
@@ -470,7 +472,7 @@ function openAssign(bid){
       const o=orderById(i.order_id);
       return `<label class="mrow"><input type="checkbox" data-item="${i.id}" ${i.batch_id===bid?'checked':''}>
         <span class="mi">${esc(i.product_name)}${i.spec?' <span class="mn">'+esc(i.spec)+'</span>':''}
-        <span class="mn">×${+i.qty||1}・¥${n2(i.subtotal_rmb)}・${esc(o?(o.order_date||''):'')} ${esc(o?o.order_no:'')}</span></span></label>`;
+        <span class="mn">×${esc(qtyShow(i.qty))}・¥${n2(i.subtotal_rmb)}・${esc(o?(o.order_date||''):'')} ${esc(o?o.order_no:'')}</span></span></label>`;
     }).join('');
   }
   $('assignMask').classList.add('on');
@@ -492,7 +494,7 @@ async function setProductName(id,v){
   renderBatches(); renderOrders();
 }
 async function setQty(id,v){
-  const q=Math.max(1,+v||1);
+  const q=v.trim()||'1';
   await db.from('taobao_items').update({qty:q}).eq('id',id);
   const it=S.items.find(i=>i.id===id); if(it)it.qty=q;
   renderBatches(); renderOrders(); renderCosts();
@@ -517,13 +519,13 @@ function renderCosts(){
   let tG=0,tF=0,tL=0;
   const rows=list.map(i=>{
     const o=orderById(i.order_id), b=batchById(i.batch_id);
-    const g=goodsTwd(i), f=feeShare(i), l=g+f, q=+i.qty||1;
+    const g=goodsTwd(i), f=feeShare(i), l=g+f, q=qtyNum(i.qty);
     tG+=g;tF+=f;tL+=l;
     const est=!(o&&o.paid_twd!=null&&o.paid_twd!=='');
     return `<tr>
       <td class="num">${mdFmt(o?o.order_date:'')}</td>
       <td class="pname"><input class="pname-input" value="${esc(i.product_name)}" onchange="setProductName(${i.id},this.value)">${i.spec?' <span style="color:var(--slate)">'+esc(i.spec)+'</span>':''}</td>
-      <td class="r"><input type="number" class="mini" min="1" step="1" style="width:60px" value="${q}" onchange="setQty(${i.id},this.value)"></td>
+      <td class="r"><input type="text" class="mini" style="width:60px;text-align:right" value="${esc(qtyShow(i.qty))}" onchange="setQty(${i.id},this.value)"></td>
       <td class="r num">${n2(i.subtotal_rmb)}</td>
       <td class="r num">${n0(g)}${est?' <span class="chip" style="font-size:10px;padding:0 5px">估</span>':''}</td>
       <td class="r num">${n0(f)}</td>
@@ -542,10 +544,10 @@ function exportCosts(){
   const head=['日期','訂單編號','商品','規格','數量','單價RMB','小計RMB','商品成本TWD','運雜分攤TWD','落地成本TWD','單件成本TWD','批次'];
   const lines=S.items.map(i=>{
     const o=orderById(i.order_id), b=batchById(i.batch_id);
-    const g=goodsTwd(i), f=feeShare(i), l=g+f, q=+i.qty||1;
+    const g=goodsTwd(i), f=feeShare(i), l=g+f, qn=qtyNum(i.qty);
     const c=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
-    return [c(o?o.order_date:''),c(o?o.order_no:''),c(i.product_name),c(i.spec),q,+i.price_rmb||0,+i.subtotal_rmb||0,
-      Math.round(g),Math.round(f),Math.round(l),(l/q).toFixed(1),c(b?b.batch_no:'')].join(',');
+    return [c(o?o.order_date:''),c(o?o.order_no:''),c(i.product_name),c(i.spec),c(qtyShow(i.qty)),+i.price_rmb||0,+i.subtotal_rmb||0,
+      Math.round(g),Math.round(f),Math.round(l),(l/qn).toFixed(1),c(b?b.batch_no:'')].join(',');
   });
   const blob=new Blob(['\uFEFF'+head.join(',')+'\n'+lines.join('\n')],{type:'text/csv'});
   const a=document.createElement('a');
@@ -625,7 +627,7 @@ async function doImport(){
       const g=groups.get(no);
       const qty=num(cell(r,'qty'))||1, price=num(cell(r,'price'));
       g.items.push({product_name:String(cell(r,'product')).trim(), spec:String(cell(r,'spec')).trim()||null,
-        qty, price_rmb:price, subtotal_rmb:+(price*qty).toFixed(2)});
+        qty:String(qty), price_rmb:price, subtotal_rmb:+(price*qty).toFixed(2)});
       if(!g.paid) g.paid=num(cell(r,'paid'));
     }
     // 略過已存在的訂單
