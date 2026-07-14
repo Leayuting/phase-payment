@@ -145,11 +145,12 @@ code{font-family:'Inter',monospace;font-size:12px;background:#EDE8DC;padding:1px
   <div class="panel">
     <div class="frow">
       <div class="f"><label>預設匯率(未填實付 TWD 時採用)</label><input type="number" step="0.01" id="rateInput"></div>
+      <div class="f"><label>國外刷卡手續費 %(未填實付 TWD 時採用)</label><input type="number" step="0.1" id="feeInput"></div>
       <button class="btn btn-s" onclick="saveRate()">儲存</button>
-      <span class="hint" style="margin:0 0 6px 8px">訂單填了信用卡實付 TWD 後,即以實際匯率計算,不受此值影響</span>
+      <span class="hint" style="margin:0 0 6px 8px">訂單填了信用卡實付 TWD 後,即以帳單實際金額計算(已含手續費),不受這兩個值影響</span>
     </div>
   </div>
-  <p class="hint">成本邏輯:商品成本 TWD(實付金額按品項 RMB 比例分攤)+ 集運運費・稅金・雜費(批次內按品項 RMB 金額比例分攤)= 落地成本。</p>
+  <p class="hint">成本邏輯:商品成本 TWD(實付金額按品項 RMB 比例分攤)+ 集運運費・稅金・雜費(批次內按品項 RMB 金額比例分攤)= 落地成本。未填實付 TWD 時,以「RMB × 匯率 ×(1+手續費%)」估算。</p>
 </section>
 
 <!-- ══ 訂單 ══ -->
@@ -228,7 +229,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 /* ═══════════════════════════════════════════════════════ */
 
 let db = null;
-const S = { orders:[], items:[], batches:[], rate:4.5 };
+const S = { orders:[], items:[], batches:[], rate:4.5, fee:1.5 };
 const $ = id => document.getElementById(id);
 const esc = s => String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const n0 = v => (Math.round(+v||0)).toLocaleString('en-US');
@@ -262,7 +263,9 @@ async function loadAll(){
   for(const r of [o,i,b,st]) if(r.error) throw r.error;
   S.orders=o.data; S.items=i.data; S.batches=b.data;
   const rr = st.data.find(x=>x.key==='rate'); if(rr) S.rate=+rr.value||4.5;
+  const rf = st.data.find(x=>x.key==='fee'); if(rf) S.fee=+rf.value||1.5;
   $('rateInput').value=S.rate;
+  $('feeInput').value=S.fee;
   renderAll();
 }
 function renderAll(){ renderOverview(); buildMonthFilter(); renderOrders(); renderBatches(); renderCosts(); }
@@ -271,12 +274,13 @@ function renderAll(){ renderOverview(); buildMonthFilter(); renderOrders(); rend
 const orderById = id => S.orders.find(o=>o.id===id);
 const batchById = id => S.batches.find(b=>b.id===id);
 const batchFee = b => (+b.shipping_twd||0)+(+b.tax_twd||0)+(+b.misc_twd||0);
-function orderTwd(o){ return (o.paid_twd!=null && o.paid_twd!=='') ? +o.paid_twd : (+o.total_rmb||0)*S.rate; }
+const estTwd = rmb => (+rmb||0)*S.rate*(1+S.fee/100);
+function orderTwd(o){ return (o.paid_twd!=null && o.paid_twd!=='') ? +o.paid_twd : estTwd(o.total_rmb); }
 function goodsTwd(it){
   const o = orderById(it.order_id);
-  if(!o) return (+it.subtotal_rmb||0)*S.rate;
+  if(!o) return estTwd(it.subtotal_rmb);
   const tot = +o.total_rmb||0;
-  if(!tot) return (+it.subtotal_rmb||0)*S.rate;
+  if(!tot) return estTwd(it.subtotal_rmb);
   return orderTwd(o) * (+it.subtotal_rmb||0) / tot;
 }
 function feeShare(it){
@@ -302,7 +306,8 @@ function renderOverview(){
 }
 async function saveRate(){
   const v = +$('rateInput').value||4.5; S.rate=v;
-  await db.from('taobao_settings').upsert({key:'rate',value:String(v)});
+  const f = +$('feeInput').value; S.fee=isNaN(f)?1.5:f;
+  await db.from('taobao_settings').upsert([{key:'rate',value:String(S.rate)},{key:'fee',value:String(S.fee)}]);
   renderAll();
 }
 
