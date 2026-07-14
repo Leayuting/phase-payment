@@ -220,6 +220,22 @@ code{font-family:'Inter',monospace;font-size:12px;background:#EDE8DC;padding:1px
   </div>
 </div>
 
+<!-- 新增品項 modal -->
+<div class="mask" id="addItemMask">
+  <div class="modal" style="max-width:440px">
+    <div class="mh"><b>新增品項</b><button class="btn-x" onclick="closeAddItem()">關閉</button></div>
+    <div class="mb">
+      <div class="f" style="margin-bottom:12px"><label>商品名稱 *</label><input id="aiName" style="width:100%"></div>
+      <div class="f" style="margin-bottom:12px"><label>規格/顏色</label><input id="aiSpec" style="width:100%"></div>
+      <div class="frow">
+        <div class="f"><label>數量</label><input id="aiQty" value="1" style="width:90px"></div>
+        <div class="f"><label>單價 RMB</label><input type="number" step="0.01" id="aiPrice" value="0" style="width:110px"></div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn-g btn" onclick="closeAddItem()">取消</button><button class="btn" onclick="saveAddItem()">新增</button></div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
@@ -357,7 +373,7 @@ function renderOrders(){
       <td><button class="btn btn-s ${o.reconciled?'btn-g':''}" onclick="toggleRec(${o.id})">${o.reconciled?'取消':'核對'}</button>
           <button class="btn-x" onclick="delOrder(${o.id})">刪除</button></td>
     </tr>
-    <tr class="sub-tr"><td colspan="9">${itxt||'(無品項)'}</td></tr>`;
+    <tr class="sub-tr"><td colspan="9">${itxt||'(無品項) '}<button class="btn-x" onclick="openAddItem(${o.id})">+ 新增品項</button></td></tr>`;
   }).join('');
   $('ordersWrap').innerHTML=`<table>
     <thead><tr><th><input type="checkbox" id="ordSelAll" onchange="toggleSelAll(this.checked)"></th><th>日期</th><th>訂單編號</th><th>店鋪</th><th class="r">實付 RMB</th><th class="r">實付 TWD</th><th class="r">匯率</th><th>狀態</th><th></th></tr></thead>
@@ -485,6 +501,28 @@ async function saveAssign(){
   if(on.length) await db.from('taobao_items').update({batch_id:assignBatchId}).in('id',on);
   if(off.length) await db.from('taobao_items').update({batch_id:null}).in('id',off).eq('batch_id',assignBatchId);
   closeAssign(); await loadAll();
+}
+
+/* 新增品項 modal */
+let addItemOrderId=null;
+function openAddItem(oid){
+  addItemOrderId=oid;
+  $('aiName').value=''; $('aiSpec').value=''; $('aiQty').value='1'; $('aiPrice').value='0';
+  $('addItemMask').classList.add('on');
+  $('aiName').focus();
+}
+function closeAddItem(){ $('addItemMask').classList.remove('on'); addItemOrderId=null; }
+async function saveAddItem(){
+  const name=$('aiName').value.trim();
+  if(!name) return alert('請填商品名稱');
+  const spec=$('aiSpec').value.trim()||null;
+  const qty=$('aiQty').value.trim()||'1';
+  const price=+$('aiPrice').value||0;
+  const subtotal=+(price*qtyNum(qty)).toFixed(2);
+  const {error}=await db.from('taobao_items').insert({
+    order_id:addItemOrderId, product_name:name, spec, qty, price_rmb:price, subtotal_rmb:subtotal});
+  if(error) return alert(error.message);
+  closeAddItem(); await loadAll();
 }
 
 async function setProductName(id,v){
