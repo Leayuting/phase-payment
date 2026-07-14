@@ -152,7 +152,7 @@ code{font-family:'Inter',monospace;font-size:12px;background:#EDE8DC;padding:1px
       <span class="hint" style="margin:0 0 6px 8px">「實付 TWD」請填淘寶上顯示的刷卡金額(未含手續費),手續費由系統統一加算</span>
     </div>
   </div>
-  <p class="hint">成本邏輯:訂單 TWD =(實付 TWD,未填則用 RMB × 匯率)×(1+手續費%);商品成本 TWD(訂單 TWD 按品項 RMB 比例分攤)+ 集運運費・稅金・雜費(批次內按品項 RMB 金額比例分攤)= 落地成本。</p>
+  <p class="hint">成本邏輯:訂單 TWD =(實付 TWD,未填則用 RMB × 匯率)×(1+手續費%);商品成本 TWD(訂單 TWD 按品項 RMB 比例分攤)+ 集運運費×(1+手續費%)・稅金・雜費(批次內按品項 RMB 金額比例分攤)= 落地成本。集運運費因為也是刷卡支付,同樣加算手續費;稅金、雜費不加。</p>
 </section>
 
 <!-- ══ 訂單 ══ -->
@@ -304,7 +304,7 @@ function renderAll(){ renderOverview(); buildMonthFilter(); renderOrders(); rend
 /* ── 成本核心 ── */
 const orderById = id => S.orders.find(o=>o.id===id);
 const batchById = id => S.batches.find(b=>b.id===id);
-const batchFee = b => (+b.shipping_twd||0)+(+b.tax_twd||0)+(+b.misc_twd||0);
+const batchFee = b => withFee(+b.shipping_twd||0)+(+b.tax_twd||0)+(+b.misc_twd||0);
 const rmbToTwd = rmb => (+rmb||0)*S.rate;
 const withFee = twd => twd*(1+S.fee/100);
 function orderTwd(o){
