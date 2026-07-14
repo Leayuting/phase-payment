@@ -617,11 +617,13 @@ async function doImport(){
   if(mapIdx('order_no')<0||mapIdx('product')<0) return alert('「訂單編號」與「商品名稱」為必填欄位');
   $('impBtn').disabled=true;
   try{
-    // 依訂單編號分組
+    // 依訂單編號分組;淘寶匯出檔多品項訂單只有第一列會填訂單編號,後面品項列該欄空白,
+    // 要延用前一列的訂單編號才不會漏品項
     const groups=new Map();
+    let lastNo=null;
     for(const r of impRows){
-      const no=String(cell(r,'order_no')).trim().replace(/^'|'$/g,'');
-      if(!no) continue;
+      let no=String(cell(r,'order_no')).trim().replace(/^'|'$/g,'');
+      if(!no){ if(!lastNo) continue; no=lastNo; } else { lastNo=no; }
       if(!groups.has(no)) groups.set(no,{no, date:parseDate(cell(r,'order_date')), shop:String(cell(r,'shop')).trim(),
         status:String(cell(r,'status')).trim(), paid:num(cell(r,'paid')), items:[]});
       const g=groups.get(no);
