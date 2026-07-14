@@ -215,7 +215,10 @@ code{font-family:'Inter',monospace;font-size:12px;background:#EDE8DC;padding:1px
 <div class="mask" id="assignMask">
   <div class="modal">
     <div class="mh"><b id="assignTitle">分配品項</b><button class="btn-x" onclick="closeAssign()">關閉</button></div>
-    <div class="mb" id="assignBody"></div>
+    <div class="mb">
+      <input id="assignKw" oninput="renderAssignList()" placeholder="搜尋商品名稱/訂單編號/店鋪" style="width:100%;margin-bottom:12px">
+      <div id="assignBody"></div>
+    </div>
     <div class="mf"><button class="btn-g btn" onclick="closeAssign()">取消</button><button class="btn" onclick="saveAssign()">儲存</button></div>
   </div>
 </div>
@@ -451,10 +454,14 @@ function renderBatches(){
         <td><button class="btn-x" onclick="unassign(${i.id})">移出</button></td></tr>`;
     }).join('');
     return `<div class="panel">
-      <div class="frow" style="margin-bottom:12px;align-items:baseline">
-        <b style="letter-spacing:.08em">${esc(b.batch_no)}</b>
-        <span class="hint" style="margin:0">${esc(b.arrive_date||'')}${b.note?'・'+esc(b.note):''}</span>
-        <span class="num hint" style="margin:0 0 0 auto">運費 ${n0(b.shipping_twd)}・稅 ${n0(b.tax_twd)}・雜費 ${n0(b.misc_twd)},合計 <b>${n0(batchFee(b))}</b>・品項 RMB ${n2(sumR)}</span>
+      <div class="frow" style="margin-bottom:12px;align-items:flex-end">
+        <div class="f"><label>批次編號</label><input class="mini" style="width:110px" value="${esc(b.batch_no)}" onchange="setBatchField(${b.id},'batch_no',this.value)"></div>
+        <div class="f"><label>到貨日</label><input type="date" class="mini" style="width:130px" value="${esc(b.arrive_date||'')}" onchange="setBatchField(${b.id},'arrive_date',this.value)"></div>
+        <div class="f"><label>運費</label><input type="number" class="mini" style="width:76px" value="${+b.shipping_twd||0}" onchange="setBatchField(${b.id},'shipping_twd',this.value)"></div>
+        <div class="f"><label>稅金</label><input type="number" class="mini" style="width:76px" value="${+b.tax_twd||0}" onchange="setBatchField(${b.id},'tax_twd',this.value)"></div>
+        <div class="f"><label>雜費</label><input type="number" class="mini" style="width:76px" value="${+b.misc_twd||0}" onchange="setBatchField(${b.id},'misc_twd',this.value)"></div>
+        <div class="f" style="flex:1;min-width:140px"><label>備註</label><input class="mini" style="width:100%" value="${esc(b.note||'')}" onchange="setBatchField(${b.id},'note',this.value)"></div>
+        <span class="num hint" style="margin:0 0 6px 0">合計 <b>${n0(batchFee(b))}</b>・品項 RMB ${n2(sumR)}</span>
         <button class="btn btn-g btn-s" onclick="openAssign(${b.id})">分配品項</button>
         <button class="btn-x" onclick="delBatch(${b.id})">刪除</button>
       </div>
@@ -463,6 +470,16 @@ function renderBatches(){
         <tbody>${rows}</tbody></table></div>`:'<p class="hint" style="margin:0">尚未分配品項</p>'}
     </div>`;
   }).join('');
+}
+async function setBatchField(id,field,v){
+  let val=v;
+  if(field==='shipping_twd'||field==='tax_twd'||field==='misc_twd') val=+v||0;
+  else if(field==='arrive_date') val=v||null;
+  else if(field==='batch_no') val=v.trim();
+  else if(field==='note') val=v.trim()||null;
+  await db.from('taobao_batches').update({[field]:val}).eq('id',id);
+  const b=batchById(id); if(b) b[field]=val;
+  renderBatches();
 }
 async function delBatch(id){
   if(!confirm('刪除此批次?品項會退回未分批狀態。')) return;
@@ -476,28 +493,40 @@ async function unassign(itemId){
 }
 
 /* 分配 modal */
-let assignBatchId=null;
+let assignBatchId=null, assignPool=[], assignChecked=new Set();
 function openAssign(bid){
   assignBatchId=bid;
   const b=batchById(bid);
   $('assignTitle').textContent='分配品項 — '+b.batch_no;
-  const pool=S.items.filter(i=>!i.batch_id||i.batch_id===bid);
-  if(!pool.length){ $('assignBody').innerHTML='<p class="hint">所有品項都已分配到其他批次。</p>'; }
-  else{
-    $('assignBody').innerHTML=pool.map(i=>{
-      const o=orderById(i.order_id);
-      return `<label class="mrow"><input type="checkbox" data-item="${i.id}" ${i.batch_id===bid?'checked':''}>
-        <span class="mi">${esc(i.product_name)}${i.spec?' <span class="mn">'+esc(i.spec)+'</span>':''}
-        <span class="mn">×${esc(qtyShow(i.qty))}・¥${n2(i.subtotal_rmb)}・${esc(o?(o.order_date||''):'')} ${esc(o?o.order_no:'')}</span></span></label>`;
-    }).join('');
-  }
+  assignPool=S.items.filter(i=>!i.batch_id||i.batch_id===bid);
+  assignChecked=new Set(assignPool.filter(i=>i.batch_id===bid).map(i=>i.id));
+  $('assignKw').value='';
+  renderAssignList();
   $('assignMask').classList.add('on');
 }
-function closeAssign(){ $('assignMask').classList.remove('on'); assignBatchId=null; }
+function renderAssignList(){
+  const kw=($('assignKw').value||'').trim().toLowerCase();
+  const list=assignPool.filter(i=>{
+    if(!kw) return true;
+    const o=orderById(i.order_id);
+    return (i.product_name||'').toLowerCase().includes(kw)
+      || (o&&(o.order_no||'').toLowerCase().includes(kw))
+      || (o&&(o.shop_name||'').toLowerCase().includes(kw));
+  });
+  if(!assignPool.length){ $('assignBody').innerHTML='<p class="hint">所有品項都已分配到其他批次。</p>'; return; }
+  if(!list.length){ $('assignBody').innerHTML='<p class="hint">沒有符合的品項。</p>'; return; }
+  $('assignBody').innerHTML=list.map(i=>{
+    const o=orderById(i.order_id);
+    return `<label class="mrow"><input type="checkbox" data-item="${i.id}" ${assignChecked.has(i.id)?'checked':''} onchange="toggleAssignChk(${i.id},this.checked)">
+      <span class="mi">${esc(i.product_name)}${i.spec?' <span class="mn">'+esc(i.spec)+'</span>':''}
+      <span class="mn">×${esc(qtyShow(i.qty))}・¥${n2(i.subtotal_rmb)}・${esc(o?(o.order_date||''):'')} ${esc(o?o.order_no:'')}${o&&o.shop_name?'・'+esc(o.shop_name):''}</span></span></label>`;
+  }).join('');
+}
+function toggleAssignChk(id,checked){ checked?assignChecked.add(id):assignChecked.delete(id); }
+function closeAssign(){ $('assignMask').classList.remove('on'); assignBatchId=null; assignPool=[]; assignChecked=new Set(); }
 async function saveAssign(){
-  const boxes=[...$('assignBody').querySelectorAll('input[type=checkbox]')];
-  const on=boxes.filter(b=>b.checked).map(b=>+b.dataset.item);
-  const off=boxes.filter(b=>!b.checked).map(b=>+b.dataset.item);
+  const on=[...assignChecked];
+  const off=assignPool.filter(i=>!assignChecked.has(i.id)).map(i=>i.id);
   if(on.length) await db.from('taobao_items').update({batch_id:assignBatchId}).in('id',on);
   if(off.length) await db.from('taobao_items').update({batch_id:null}).in('id',off).eq('batch_id',assignBatchId);
   closeAssign(); await loadAll();
