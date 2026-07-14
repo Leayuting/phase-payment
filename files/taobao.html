@@ -145,12 +145,12 @@ code{font-family:'Inter',monospace;font-size:12px;background:#EDE8DC;padding:1px
   <div class="panel">
     <div class="frow">
       <div class="f"><label>預設匯率(未填實付 TWD 時採用)</label><input type="number" step="0.01" id="rateInput"></div>
-      <div class="f"><label>國外刷卡手續費 %(未填實付 TWD 時採用)</label><input type="number" step="0.1" id="feeInput"></div>
+      <div class="f"><label>國外刷卡手續費 %(一律套用)</label><input type="number" step="0.1" id="feeInput"></div>
       <button class="btn btn-s" onclick="saveRate()">儲存</button>
-      <span class="hint" style="margin:0 0 6px 8px">訂單填了信用卡實付 TWD 後,即以帳單實際金額計算(已含手續費),不受這兩個值影響</span>
+      <span class="hint" style="margin:0 0 6px 8px">「實付 TWD」請填淘寶上顯示的刷卡金額(未含手續費),手續費由系統統一加算</span>
     </div>
   </div>
-  <p class="hint">成本邏輯:商品成本 TWD(實付金額按品項 RMB 比例分攤)+ 集運運費・稅金・雜費(批次內按品項 RMB 金額比例分攤)= 落地成本。未填實付 TWD 時,以「RMB × 匯率 ×(1+手續費%)」估算。</p>
+  <p class="hint">成本邏輯:訂單 TWD =(實付 TWD,未填則用 RMB × 匯率)×(1+手續費%);商品成本 TWD(訂單 TWD 按品項 RMB 比例分攤)+ 集運運費・稅金・雜費(批次內按品項 RMB 金額比例分攤)= 落地成本。</p>
 </section>
 
 <!-- ══ 訂單 ══ -->
@@ -274,13 +274,17 @@ function renderAll(){ renderOverview(); buildMonthFilter(); renderOrders(); rend
 const orderById = id => S.orders.find(o=>o.id===id);
 const batchById = id => S.batches.find(b=>b.id===id);
 const batchFee = b => (+b.shipping_twd||0)+(+b.tax_twd||0)+(+b.misc_twd||0);
-const estTwd = rmb => (+rmb||0)*S.rate*(1+S.fee/100);
-function orderTwd(o){ return (o.paid_twd!=null && o.paid_twd!=='') ? +o.paid_twd : estTwd(o.total_rmb); }
+const rmbToTwd = rmb => (+rmb||0)*S.rate;
+const withFee = twd => twd*(1+S.fee/100);
+function orderTwd(o){
+  const base = (o.paid_twd!=null && o.paid_twd!=='') ? +o.paid_twd : rmbToTwd(o.total_rmb);
+  return withFee(base);
+}
 function goodsTwd(it){
   const o = orderById(it.order_id);
-  if(!o) return estTwd(it.subtotal_rmb);
+  if(!o) return withFee(rmbToTwd(it.subtotal_rmb));
   const tot = +o.total_rmb||0;
-  if(!tot) return estTwd(it.subtotal_rmb);
+  if(!tot) return withFee(rmbToTwd(it.subtotal_rmb));
   return orderTwd(o) * (+it.subtotal_rmb||0) / tot;
 }
 function feeShare(it){
