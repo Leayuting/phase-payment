@@ -158,6 +158,7 @@ code{font-family:'Inter',monospace;font-size:12px;background:#EDE8DC;padding:1px
     <div class="f"><label>對帳狀態</label><select id="fRec" onchange="renderOrders()">
       <option value="">全部</option><option value="0">未對帳</option><option value="1">已對帳</option></select></div>
     <div class="f" style="flex:1;min-width:160px"><label>搜尋(訂單編號/店鋪)</label><input id="fOrderKw" oninput="renderOrders()" placeholder=""></div>
+    <button class="btn btn-g" id="bulkDelBtn" onclick="bulkDeleteOrders()" disabled>刪除已選取(0)</button>
   </div></div>
   <div class="scroll" id="ordersWrap"></div>
   <p class="hint" style="margin-top:12px">「實付 TWD」填信用卡帳單上的實際扣款金額;匯率會自動算出,明顯偏離時代表帳單金額或訂單金額需要再確認。核對無誤後按「核對」。</p>
@@ -312,13 +313,16 @@ function buildMonthFilter(){
   const curC=$('fCostMonth').value;
   $('fCostMonth').innerHTML='<option value="">全部</option>'+ms.map(m=>`<option${m===curC?' selected':''}>${m}</option>`).join('');
 }
+let selOrders=new Set(), curOrderIds=[];
 function renderOrders(){
   const m=$('fMonth').value, rec=$('fRec').value, kw=($('fOrderKw').value||'').trim().toLowerCase();
   let list=S.orders.filter(o=>
     (!m||o.month===m) &&
     (rec===''||(rec==='1')===!!o.reconciled) &&
     (!kw||(o.order_no||'').toLowerCase().includes(kw)||(o.shop_name||'').toLowerCase().includes(kw)));
-  if(!list.length){ $('ordersWrap').innerHTML='<div class="empty">沒有符合的訂單</div>'; return; }
+  curOrderIds=list.map(o=>o.id);
+  for(const id of [...selOrders]) if(!curOrderIds.includes(id)) selOrders.delete(id);
+  if(!list.length){ $('ordersWrap').innerHTML='<div class="empty">沒有符合的訂單</div>'; updateBulkUI(); return; }
   let sumR=0,sumT=0;
   const rows=list.map(o=>{
     sumR+=+o.total_rmb||0; sumT+=orderTwd(o);
@@ -327,6 +331,7 @@ function renderOrders(){
     const its=S.items.filter(i=>i.order_id===o.id);
     const itxt=its.map(i=>esc(i.product_name)+(i.spec?'('+esc(i.spec)+')':'')+' ×'+(+i.qty||1)).join('、');
     return `<tr>
+      <td><input type="checkbox" ${selOrders.has(o.id)?'checked':''} onchange="toggleSel(${o.id},this.checked)"></td>
       <td class="num">${esc(o.order_date||'')}</td>
       <td class="num" style="font-size:12px">${esc(o.order_no)}</td>
       <td>${esc(o.shop_name||'')}</td>
@@ -337,13 +342,35 @@ function renderOrders(){
       <td><button class="btn btn-s ${o.reconciled?'btn-g':''}" onclick="toggleRec(${o.id})">${o.reconciled?'取消':'核對'}</button>
           <button class="btn-x" onclick="delOrder(${o.id})">刪除</button></td>
     </tr>
-    <tr class="sub-tr"><td colspan="8">${itxt||'(無品項)'}</td></tr>`;
+    <tr class="sub-tr"><td colspan="9">${itxt||'(無品項)'}</td></tr>`;
   }).join('');
   $('ordersWrap').innerHTML=`<table>
-    <thead><tr><th>日期</th><th>訂單編號</th><th>店鋪</th><th class="r">實付 RMB</th><th class="r">實付 TWD</th><th class="r">匯率</th><th>狀態</th><th></th></tr></thead>
+    <thead><tr><th><input type="checkbox" id="ordSelAll" onchange="toggleSelAll(this.checked)"></th><th>日期</th><th>訂單編號</th><th>店鋪</th><th class="r">實付 RMB</th><th class="r">實付 TWD</th><th class="r">匯率</th><th>狀態</th><th></th></tr></thead>
     <tbody>${rows}</tbody>
-    <tfoot><tr><td colspan="3">合計 ${list.length} 筆</td><td class="r num">${n2(sumR)}</td><td class="r num">${n0(sumT)}</td><td colspan="3"></td></tr></tfoot>
+    <tfoot><tr><td colspan="4">合計 ${list.length} 筆</td><td class="r num">${n2(sumR)}</td><td class="r num">${n0(sumT)}</td><td colspan="3"></td></tr></tfoot>
   </table>`;
+  updateBulkUI();
+}
+function updateBulkUI(){
+  const n=selOrders.size;
+  $('bulkDelBtn').textContent='刪除已選取('+n+')';
+  $('bulkDelBtn').disabled=n===0;
+  const all=$('ordSelAll'); if(all) all.checked=curOrderIds.length>0 && n===curOrderIds.length;
+}
+function toggleSel(id,checked){ checked?selOrders.add(id):selOrders.delete(id); updateBulkUI(); }
+function toggleSelAll(checked){
+  checked? curOrderIds.forEach(id=>selOrders.add(id)) : curOrderIds.forEach(id=>selOrders.delete(id));
+  renderOrders();
+}
+async function bulkDeleteOrders(){
+  const ids=[...selOrders];
+  if(!ids.length) return;
+  if(!confirm('刪除選取的 '+ids.length+' 筆訂單及其所有品項?此動作無法復原。')) return;
+  $('bulkDelBtn').disabled=true;
+  const {error}=await db.from('taobao_orders').delete().in('id',ids);
+  if(error){ alert(error.message); $('bulkDelBtn').disabled=false; return; }
+  selOrders.clear();
+  await loadAll();
 }
 async function setPaid(id,v){
   await db.from('taobao_orders').update({paid_twd:v===''?null:+v}).eq('id',id);
