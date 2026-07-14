@@ -73,6 +73,7 @@ tfoot td{font-weight:500;background:#F2EDE2;border-top:1px solid var(--stone)}
 .pname-input:hover{border-color:var(--stone)}
 .pname-input:focus{border-color:var(--olive);background:#fff}
 .iname{width:150px}
+input:disabled{opacity:1;background:transparent;color:inherit;border-color:transparent;cursor:default}
 
 .chip{display:inline-block;font-size:11px;letter-spacing:.1em;padding:2px 9px;border:1px solid var(--stone);color:var(--slate)}
 .chip.ok{border-color:var(--olive);color:var(--olive)}
@@ -115,6 +116,7 @@ code{font-family:'Inter',monospace;font-size:12px;background:#EDE8DC;padding:1px
     <span class="mark">PHASE</span>
     <span class="div"></span>
     <span class="sub">淘寶對帳・商品成本</span>
+    <button class="btn btn-g btn-s" id="editModeBtn" onclick="toggleEditMode()" style="margin-left:auto;align-self:center">🔒 鎖定中(點擊解鎖編輯)</button>
     <span class="conn"><span class="dot" id="connDot"></span><span id="connTx">未連線</span></span>
   </div>
   <div class="navwrap"><nav>
@@ -248,7 +250,15 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 /* ═══════════════════════════════════════════════════════ */
 
 let db = null;
+let editMode = false;
 const S = { orders:[], items:[], batches:[], rate:4.5, fee:1.5 };
+function toggleEditMode(){
+  editMode=!editMode;
+  const btn=$('editModeBtn');
+  btn.textContent = editMode ? '🔓 已解鎖(可編輯)' : '🔒 鎖定中(點擊解鎖編輯)';
+  btn.classList.toggle('btn-g', !editMode);
+  renderAll();
+}
 const $ = id => document.getElementById(id);
 const esc = s => String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const n0 = v => (Math.round(+v||0)).toLocaleString('en-US');
@@ -362,15 +372,15 @@ function renderOrders(){
     const off=rate&&(rate<3.8||rate>5.2);
     const its=S.items.filter(i=>i.order_id===o.id);
     const itxt=its.map(i=>
-      `<span style="display:inline-flex;align-items:center;margin:0 6px 4px 0"><input class="pname-input iname" value="${esc(i.product_name)}" onchange="setProductName(${i.id},this.value)">${i.spec?' <span class="mn">('+esc(i.spec)+')</span>':''} <span class="mn">&nbsp;×</span><input type="text" class="mini" style="width:50px;text-align:left" value="${esc(qtyShow(i.qty))}" onchange="setQty(${i.id},this.value)"></span>`
+      `<span style="display:inline-flex;align-items:center;margin:0 6px 4px 0"><input class="pname-input iname" value="${esc(i.product_name)}" onchange="setProductName(${i.id},this.value)" ${editMode?'':'disabled'}>${i.spec?' <span class="mn">('+esc(i.spec)+')</span>':''} <span class="mn">&nbsp;×</span><input type="text" class="mini" style="width:50px;text-align:left" value="${esc(qtyShow(i.qty))}" onchange="setQty(${i.id},this.value)" ${editMode?'':'disabled'}></span>`
     ).join('');
     return `<tr>
       <td><input type="checkbox" ${selOrders.has(o.id)?'checked':''} onchange="toggleSel(${o.id},this.checked)"></td>
       <td class="num">${mdFmt(o.order_date)}</td>
       <td class="num" style="font-size:12px">${esc(o.order_no)}</td>
-      <td><input class="pname-input iname" value="${esc(o.shop_name||'')}" onchange="setShopName(${o.id},this.value)"></td>
+      <td><input class="pname-input iname" value="${esc(o.shop_name||'')}" onchange="setShopName(${o.id},this.value)" ${editMode?'':'disabled'}></td>
       <td class="r num">${n2(o.total_rmb)}</td>
-      <td class="r"><input type="number" class="mini" step="1" value="${o.paid_twd??''}" onchange="setPaid(${o.id},this.value)"></td>
+      <td class="r"><input type="number" class="mini" step="1" value="${o.paid_twd??''}" onchange="setPaid(${o.id},this.value)" ${editMode?'':'disabled'}></td>
       <td class="r num${off?' rate-off':''}">${rate?n2(rate):'–'}</td>
       <td>${o.reconciled?'<span class="chip ok">已對帳</span>':'<span class="chip">未對帳</span>'}</td>
       <td><button class="btn btn-s ${o.reconciled?'btn-g':''}" onclick="toggleRec(${o.id})">${o.reconciled?'取消':'核對'}</button>
@@ -455,12 +465,12 @@ function renderBatches(){
     }).join('');
     return `<div class="panel">
       <div class="frow" style="margin-bottom:12px;align-items:flex-end">
-        <div class="f"><label>批次編號</label><input class="mini" style="width:110px" value="${esc(b.batch_no)}" onchange="setBatchField(${b.id},'batch_no',this.value)"></div>
-        <div class="f"><label>到貨日</label><input type="date" class="mini" style="width:130px" value="${esc(b.arrive_date||'')}" onchange="setBatchField(${b.id},'arrive_date',this.value)"></div>
-        <div class="f"><label>運費</label><input type="number" class="mini" style="width:76px" value="${+b.shipping_twd||0}" onchange="setBatchField(${b.id},'shipping_twd',this.value)"></div>
-        <div class="f"><label>稅金</label><input type="number" class="mini" style="width:76px" value="${+b.tax_twd||0}" onchange="setBatchField(${b.id},'tax_twd',this.value)"></div>
-        <div class="f"><label>雜費</label><input type="number" class="mini" style="width:76px" value="${+b.misc_twd||0}" onchange="setBatchField(${b.id},'misc_twd',this.value)"></div>
-        <div class="f" style="flex:1;min-width:140px"><label>備註</label><input class="mini" style="width:100%" value="${esc(b.note||'')}" onchange="setBatchField(${b.id},'note',this.value)"></div>
+        <div class="f"><label>批次編號</label><input class="mini" style="width:110px" value="${esc(b.batch_no)}" onchange="setBatchField(${b.id},'batch_no',this.value)" ${editMode?'':'disabled'}></div>
+        <div class="f"><label>到貨日</label><input type="date" class="mini" style="width:130px" value="${esc(b.arrive_date||'')}" onchange="setBatchField(${b.id},'arrive_date',this.value)" ${editMode?'':'disabled'}></div>
+        <div class="f"><label>運費</label><input type="number" class="mini" style="width:76px" value="${+b.shipping_twd||0}" onchange="setBatchField(${b.id},'shipping_twd',this.value)" ${editMode?'':'disabled'}></div>
+        <div class="f"><label>稅金</label><input type="number" class="mini" style="width:76px" value="${+b.tax_twd||0}" onchange="setBatchField(${b.id},'tax_twd',this.value)" ${editMode?'':'disabled'}></div>
+        <div class="f"><label>雜費</label><input type="number" class="mini" style="width:76px" value="${+b.misc_twd||0}" onchange="setBatchField(${b.id},'misc_twd',this.value)" ${editMode?'':'disabled'}></div>
+        <div class="f" style="flex:1;min-width:140px"><label>備註</label><input class="mini" style="width:100%" value="${esc(b.note||'')}" onchange="setBatchField(${b.id},'note',this.value)" ${editMode?'':'disabled'}></div>
         <span class="num hint" style="margin:0 0 6px 0">合計 <b>${n0(batchFee(b))}</b>・品項 RMB ${n2(sumR)}</span>
         <button class="btn btn-g btn-s" onclick="openAssign(${b.id})">分配品項</button>
         <button class="btn-x" onclick="delBatch(${b.id})">刪除</button>
@@ -591,8 +601,8 @@ function renderCosts(){
     const est=!(o&&o.paid_twd!=null&&o.paid_twd!=='');
     return `<tr>
       <td class="num">${mdFmt(o?o.order_date:'')}</td>
-      <td class="pname"><input class="pname-input" value="${esc(i.product_name)}" onchange="setProductName(${i.id},this.value)">${i.spec?' <span style="color:var(--slate)">'+esc(i.spec)+'</span>':''}</td>
-      <td class="r"><input type="text" class="mini" style="width:60px;text-align:right" value="${esc(qtyShow(i.qty))}" onchange="setQty(${i.id},this.value)"></td>
+      <td class="pname"><input class="pname-input" value="${esc(i.product_name)}" onchange="setProductName(${i.id},this.value)" ${editMode?'':'disabled'}>${i.spec?' <span style="color:var(--slate)">'+esc(i.spec)+'</span>':''}</td>
+      <td class="r"><input type="text" class="mini" style="width:60px;text-align:right" value="${esc(qtyShow(i.qty))}" onchange="setQty(${i.id},this.value)" ${editMode?'':'disabled'}></td>
       <td class="r num">${n2(i.subtotal_rmb)}</td>
       <td class="r num">${n0(g)}${est?' <span class="chip" style="font-size:10px;padding:0 5px">估</span>':''}</td>
       <td class="r num">${n0(f)}</td>
