@@ -341,7 +341,7 @@ function renderOrders(){
     const off=rate&&(rate<3.8||rate>5.2);
     const its=S.items.filter(i=>i.order_id===o.id);
     const itxt=its.map(i=>
-      `<span style="display:inline-flex;align-items:center;margin:0 6px 4px 0"><input class="pname-input iname" value="${esc(i.product_name)}" onchange="setProductName(${i.id},this.value)">${i.spec?' <span class="mn">('+esc(i.spec)+')</span>':''} <span class="mn">&nbsp;×${+i.qty||1}</span></span>`
+      `<span style="display:inline-flex;align-items:center;margin:0 6px 4px 0"><input class="pname-input iname" value="${esc(i.product_name)}" onchange="setProductName(${i.id},this.value)">${i.spec?' <span class="mn">('+esc(i.spec)+')</span>':''} <span class="mn">&nbsp;×</span><input type="number" class="mini" min="1" step="1" style="width:44px;padding:2px 4px" value="${+i.qty||1}" onchange="setQty(${i.id},this.value)"></span>`
     ).join('');
     return `<tr>
       <td><input type="checkbox" ${selOrders.has(o.id)?'checked':''} onchange="toggleSel(${o.id},this.checked)"></td>
@@ -491,6 +491,12 @@ async function setProductName(id,v){
   const it=S.items.find(i=>i.id===id); if(it)it.product_name=name;
   renderBatches(); renderOrders();
 }
+async function setQty(id,v){
+  const q=Math.max(1,+v||1);
+  await db.from('taobao_items').update({qty:q}).eq('id',id);
+  const it=S.items.find(i=>i.id===id); if(it)it.qty=q;
+  renderBatches(); renderOrders(); renderCosts();
+}
 
 /* ── 商品成本 ── */
 function renderCosts(){
@@ -517,7 +523,7 @@ function renderCosts(){
     return `<tr>
       <td class="num">${mdFmt(o?o.order_date:'')}</td>
       <td class="pname"><input class="pname-input" value="${esc(i.product_name)}" onchange="setProductName(${i.id},this.value)">${i.spec?' <span style="color:var(--slate)">'+esc(i.spec)+'</span>':''}</td>
-      <td class="r num">${q}</td>
+      <td class="r"><input type="number" class="mini" min="1" step="1" style="width:60px" value="${q}" onchange="setQty(${i.id},this.value)"></td>
       <td class="r num">${n2(i.subtotal_rmb)}</td>
       <td class="r num">${n0(g)}${est?' <span class="chip" style="font-size:10px;padding:0 5px">估</span>':''}</td>
       <td class="r num">${n0(f)}</td>
