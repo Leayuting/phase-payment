@@ -69,6 +69,9 @@ td.r,th.r{text-align:right}
 tfoot td{font-weight:500;background:#F2EDE2;border-top:1px solid var(--stone)}
 .sub-tr td{background:#F4F0E7;font-size:12.5px;color:var(--slate);white-space:normal}
 .pname{white-space:normal;min-width:220px;line-height:1.5}
+.pname-input{width:100%;border:1px solid transparent;background:transparent;color:inherit;font:inherit;padding:2px 4px;margin:-2px -4px}
+.pname-input:hover{border-color:var(--stone)}
+.pname-input:focus{border-color:var(--olive);background:#fff}
 
 .chip{display:inline-block;font-size:11px;letter-spacing:.1em;padding:2px 9px;border:1px solid var(--stone);color:var(--slate)}
 .chip.ok{border-color:var(--olive);color:var(--olive)}
@@ -433,6 +436,13 @@ async function saveAssign(){
   closeAssign(); await loadAll();
 }
 
+async function setProductName(id,v){
+  const name=v.trim();
+  await db.from('taobao_items').update({product_name:name}).eq('id',id);
+  const it=S.items.find(i=>i.id===id); if(it)it.product_name=name;
+  renderBatches(); renderOrders();
+}
+
 /* ── 商品成本 ── */
 function renderCosts(){
   const bsel=$('fCostBatch'); const cur=bsel.value;
@@ -451,7 +461,7 @@ function renderCosts(){
     const est=!(o&&o.paid_twd!=null&&o.paid_twd!=='');
     return `<tr>
       <td class="num">${esc(o?(o.order_date||''):'')}</td>
-      <td class="pname">${esc(i.product_name)}${i.spec?' <span style="color:var(--slate)">'+esc(i.spec)+'</span>':''}</td>
+      <td class="pname"><input class="pname-input" value="${esc(i.product_name)}" onchange="setProductName(${i.id},this.value)">${i.spec?' <span style="color:var(--slate)">'+esc(i.spec)+'</span>':''}</td>
       <td class="r num">${q}</td>
       <td class="r num">${n2(i.subtotal_rmb)}</td>
       <td class="r num">${n0(g)}${est?' <span class="chip" style="font-size:10px;padding:0 5px">估</span>':''}</td>
