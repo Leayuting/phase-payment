@@ -72,6 +72,7 @@ tfoot td{font-weight:500;background:#F2EDE2;border-top:1px solid var(--stone)}
 .pname-input{width:100%;border:1px solid transparent;background:transparent;color:inherit;font:inherit;padding:2px 4px;margin:-2px -4px}
 .pname-input:hover{border-color:var(--stone)}
 .pname-input:focus{border-color:var(--olive);background:#fff}
+.iname{width:150px}
 
 .chip{display:inline-block;font-size:11px;letter-spacing:.1em;padding:2px 9px;border:1px solid var(--stone);color:var(--slate)}
 .chip.ok{border-color:var(--olive);color:var(--olive)}
@@ -329,12 +330,14 @@ function renderOrders(){
     const rate=(+o.total_rmb&&o.paid_twd)?(+o.paid_twd/+o.total_rmb):null;
     const off=rate&&(rate<3.8||rate>5.2);
     const its=S.items.filter(i=>i.order_id===o.id);
-    const itxt=its.map(i=>esc(i.product_name)+(i.spec?'('+esc(i.spec)+')':'')+' ×'+(+i.qty||1)).join('、');
+    const itxt=its.map(i=>
+      `<span style="display:inline-flex;align-items:center;margin:0 6px 4px 0"><input class="pname-input iname" value="${esc(i.product_name)}" onchange="setProductName(${i.id},this.value)">${i.spec?' <span class="mn">('+esc(i.spec)+')</span>':''} <span class="mn">&nbsp;×${+i.qty||1}</span></span>`
+    ).join('');
     return `<tr>
       <td><input type="checkbox" ${selOrders.has(o.id)?'checked':''} onchange="toggleSel(${o.id},this.checked)"></td>
       <td class="num">${esc(o.order_date||'')}</td>
       <td class="num" style="font-size:12px">${esc(o.order_no)}</td>
-      <td>${esc(o.shop_name||'')}</td>
+      <td><input class="pname-input iname" value="${esc(o.shop_name||'')}" onchange="setShopName(${o.id},this.value)"></td>
       <td class="r num">${n2(o.total_rmb)}</td>
       <td class="r"><input type="number" class="mini" step="1" value="${o.paid_twd??''}" onchange="setPaid(${o.id},this.value)"></td>
       <td class="r num${off?' rate-off':''}">${rate?n2(rate):'–'}</td>
@@ -376,6 +379,11 @@ async function setPaid(id,v){
   await db.from('taobao_orders').update({paid_twd:v===''?null:+v}).eq('id',id);
   const o=orderById(id); if(o)o.paid_twd=v===''?null:+v;
   renderOrders(); renderOverview(); renderCosts();
+}
+async function setShopName(id,v){
+  const val=v.trim();
+  await db.from('taobao_orders').update({shop_name:val||null}).eq('id',id);
+  const o=orderById(id); if(o)o.shop_name=val||null;
 }
 async function toggleRec(id){
   const o=orderById(id);
