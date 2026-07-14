@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>淘寶對帳 — PHASE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#1B1816; --paper:#F6F2EB; --stone:#D9D5CF; --olive:#4E5747; --slate:#5E6770;
+  --card:#FCFAF5; --line:#E5E0D6; --red:#9C4A3C;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:'Noto Sans TC',sans-serif;font-size:14px;line-height:1.65;-webkit-font-smoothing:antialiased}
+.num,input[type=number]{font-family:'Inter','Noto Sans TC',sans-serif;font-variant-numeric:tabular-nums}
+
+header{border-bottom:1px solid var(--stone);background:var(--paper);position:sticky;top:0;z-index:20}
+.hd{max-width:1160px;margin:0 auto;padding:18px 24px;display:flex;align-items:baseline;gap:14px}
+.hd .mark{font-family:'Inter',sans-serif;font-weight:600;letter-spacing:.34em;font-size:15px}
+.hd .div{width:1px;height:14px;background:var(--stone);align-self:center}
+.hd .sub{font-size:13px;color:var(--slate);letter-spacing:.14em}
+.hd .conn{margin-left:auto;font-size:11px;letter-spacing:.1em;color:var(--slate);display:flex;align-items:center;gap:6px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--stone)}
+.dot.ok{background:var(--olive)}
+.dot.err{background:var(--red)}
+
+nav{max-width:1160px;margin:0 auto;padding:0 24px;display:flex;gap:26px;overflow-x:auto}
+nav button{background:none;border:none;font:inherit;color:var(--slate);padding:12px 2px;cursor:pointer;border-bottom:2px solid transparent;letter-spacing:.08em;white-space:nowrap}
+nav button.on{color:var(--ink);border-bottom-color:var(--olive);font-weight:500}
+.navwrap{border-bottom:1px solid var(--stone);background:var(--paper)}
+
+main{max-width:1160px;margin:0 auto;padding:30px 24px 80px}
+section{display:none}
+section.on{display:block}
+h2{font-size:15px;font-weight:700;letter-spacing:.12em;margin-bottom:16px}
+.hint{color:var(--slate);font-size:12.5px;margin-bottom:14px}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:28px}
+.card{background:var(--card);border:1px solid var(--line);padding:18px 20px}
+.card .lb{font-size:11px;letter-spacing:.18em;color:var(--slate);margin-bottom:8px}
+.card .v{font-family:'Inter',sans-serif;font-size:24px;font-weight:500;font-variant-numeric:tabular-nums}
+.card .v small{font-size:12px;color:var(--slate);font-weight:400;margin-left:4px;letter-spacing:.06em}
+
+.panel{background:var(--card);border:1px solid var(--line);padding:20px;margin-bottom:22px}
+.frow{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.f{display:flex;flex-direction:column;gap:5px}
+.f label{font-size:11px;letter-spacing:.16em;color:var(--slate)}
+input,select{font:inherit;font-size:13.5px;padding:7px 10px;border:1px solid var(--stone);background:#fff;color:var(--ink);border-radius:0;outline:none;min-width:0}
+input:focus,select:focus{border-color:var(--olive)}
+input[type=number]{text-align:right;width:110px}
+input[type=file]{border:none;padding:0;background:none;font-size:12.5px}
+
+.btn{font:inherit;font-size:13px;letter-spacing:.1em;padding:8px 20px;border:1px solid var(--olive);background:var(--olive);color:#fff;cursor:pointer}
+.btn:hover{opacity:.9}
+.btn:disabled{opacity:.4;cursor:default}
+.btn-g{background:transparent;color:var(--ink);border:1px solid var(--stone)}
+.btn-g:hover{border-color:var(--olive);color:var(--olive);opacity:1}
+.btn-s{padding:4px 12px;font-size:12px}
+.btn-x{background:none;border:none;color:var(--slate);cursor:pointer;font-size:12px;text-decoration:underline;text-underline-offset:3px;padding:2px}
+.btn-x:hover{color:var(--red)}
+
+.scroll{overflow-x:auto;border:1px solid var(--line);background:var(--card)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-size:11px;font-weight:500;letter-spacing:.14em;color:var(--slate);text-align:left;padding:10px 12px;border-bottom:1px solid var(--stone);white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+td.r,th.r{text-align:right}
+tfoot td{font-weight:500;background:#F2EDE2;border-top:1px solid var(--stone)}
+.sub-tr td{background:#F4F0E7;font-size:12.5px;color:var(--slate);white-space:normal}
+.pname{white-space:normal;min-width:220px;line-height:1.5}
+
+.chip{display:inline-block;font-size:11px;letter-spacing:.1em;padding:2px 9px;border:1px solid var(--stone);color:var(--slate)}
+.chip.ok{border-color:var(--olive);color:var(--olive)}
+.chip.warn{border-color:var(--red);color:var(--red)}
+.rate-off{color:var(--red)}
+
+.mini{width:96px;padding:5px 8px;font-size:12.5px}
+.log{font-size:12.5px;color:var(--slate);white-space:pre-wrap;margin-top:12px;line-height:1.8}
+.empty{padding:34px;text-align:center;color:var(--slate);font-size:13px;letter-spacing:.08em}
+
+.setup{border:1px solid var(--olive);background:#EFF0EA;padding:20px;margin-bottom:26px;font-size:13.5px;line-height:2}
+.setup b{letter-spacing:.06em}
+code{font-family:'Inter',monospace;font-size:12px;background:#EDE8DC;padding:1px 6px}
+
+/* modal */
+.mask{display:none;position:fixed;inset:0;background:rgba(27,24,22,.45);z-index:50;align-items:flex-start;justify-content:center;padding:6vh 16px}
+.mask.on{display:flex}
+.modal{background:var(--paper);border:1px solid var(--stone);max-width:760px;width:100%;max-height:84vh;display:flex;flex-direction:column}
+.modal .mh{padding:16px 20px;border-bottom:1px solid var(--stone);display:flex;justify-content:space-between;align-items:center}
+.modal .mb{padding:16px 20px;overflow-y:auto}
+.modal .mf{padding:14px 20px;border-top:1px solid var(--stone);display:flex;gap:10px;justify-content:flex-end}
+.mrow{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+.mrow:last-child{border-bottom:none}
+.mrow input[type=checkbox]{margin-top:4px}
+.mrow .mi{flex:1;line-height:1.5}
+.mrow .mn{color:var(--slate);font-size:12px}
+
+@media(max-width:640px){
+  .hd{padding:14px 16px}
+  main{padding:22px 14px 70px}
+  nav{padding:0 16px;gap:18px}
+  input[type=number]{width:90px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hd">
+    <span class="mark">PHASE</span>
+    <span class="div"></span>
+    <span class="sub">淘寶對帳・商品成本</span>
+    <span class="conn"><span class="dot" id="connDot"></span><span id="connTx">未連線</span></span>
+  </div>
+  <div class="navwrap"><nav>
+    <button data-v="overview" class="on">總覽</button>
+    <button data-v="orders">訂單對帳</button>
+    <button data-v="batches">集運批次</button>
+    <button data-v="costs">商品成本</button>
+    <button data-v="import">匯入訂單</button>
+  </nav></div>
+</header>
+
+<main>
+
+<!-- ══ 總覽 ══ -->
+<section id="v-overview" class="on">
+  <div id="setupBox" class="setup" style="display:none">
+    <b>首次設定(兩步)</b><br>
+    1. 到 Supabase(phase-payment 專案)→ SQL Editor,貼上 <code>taobao_supabase.sql</code> 全部內容執行一次<br>
+    2. 用文字編輯器打開本檔案,最上方 <code>SUPABASE_KEY</code> 貼上 anon key(和貨款系統同一組,可直接從貨款系統的 index.html 裡複製)<br>
+    完成後重新整理即可。
+  </div>
+  <div class="cards">
+    <div class="card"><div class="lb">未對帳訂單</div><div class="v" id="ovUnrec">–</div></div>
+    <div class="card"><div class="lb">未入批次品項</div><div class="v" id="ovUnbatch">–</div></div>
+    <div class="card"><div class="lb">本月採購 RMB</div><div class="v" id="ovRmb">–</div></div>
+    <div class="card"><div class="lb">本月落地成本 TWD</div><div class="v" id="ovTwd">–</div></div>
+  </div>
+  <div class="panel">
+    <div class="frow">
+      <div class="f"><label>預設匯率(未填實付 TWD 時採用)</label><input type="number" step="0.01" id="rateInput"></div>
+      <button class="btn btn-s" onclick="saveRate()">儲存</button>
+      <span class="hint" style="margin:0 0 6px 8px">訂單填了信用卡實付 TWD 後,即以實際匯率計算,不受此值影響</span>
+    </div>
+  </div>
+  <p class="hint">成本邏輯:商品成本 TWD(實付金額按品項 RMB 比例分攤)+ 集運運費・稅金・雜費(批次內按品項 RMB 金額比例分攤)= 落地成本。</p>
+</section>
+
+<!-- ══ 訂單 ══ -->
+<section id="v-orders">
+  <div class="panel"><div class="frow">
+    <div class="f"><label>月份</label><select id="fMonth" onchange="renderOrders()"><option value="">全部</option></select></div>
+    <div class="f"><label>對帳狀態</label><select id="fRec" onchange="renderOrders()">
+      <option value="">全部</option><option value="0">未對帳</option><option value="1">已對帳</option></select></div>
+    <div class="f" style="flex:1;min-width:160px"><label>搜尋(訂單編號/店鋪)</label><input id="fOrderKw" oninput="renderOrders()" placeholder=""></div>
+  </div></div>
+  <div class="scroll" id="ordersWrap"></div>
+  <p class="hint" style="margin-top:12px">「實付 TWD」填信用卡帳單上的實際扣款金額;匯率會自動算出,明顯偏離時代表帳單金額或訂單金額需要再確認。核對無誤後按「核對」。</p>
+</section>
+
+<!-- ══ 集運批次 ══ -->
+<section id="v-batches">
+  <div class="panel">
+    <div class="frow">
+      <div class="f"><label>批次編號</label><input id="bNo" placeholder="如 2607-01" style="width:120px"></div>
+      <div class="f"><label>到貨日</label><input type="date" id="bDate"></div>
+      <div class="f"><label>集運運費 TWD</label><input type="number" id="bShip" value="0"></div>
+      <div class="f"><label>稅金 TWD</label><input type="number" id="bTax" value="0"></div>
+      <div class="f"><label>雜費 TWD</label><input type="number" id="bMisc" value="0"></div>
+      <div class="f" style="flex:1;min-width:140px"><label>備註</label><input id="bNote"></div>
+      <button class="btn" onclick="addBatch()">新增批次</button>
+    </div>
+  </div>
+  <div id="batchList"></div>
+</section>
+
+<!-- ══ 商品成本 ══ -->
+<section id="v-costs">
+  <div class="panel"><div class="frow">
+    <div class="f" style="flex:1;min-width:180px"><label>搜尋商品</label><input id="fCostKw" oninput="renderCosts()"></div>
+    <div class="f"><label>批次</label><select id="fCostBatch" onchange="renderCosts()"><option value="">全部</option></select></div>
+    <button class="btn btn-g" onclick="exportCosts()">匯出 CSV</button>
+  </div></div>
+  <div class="scroll" id="costsWrap"></div>
+</section>
+
+<!-- ══ 匯入 ══ -->
+<section id="v-import">
+  <div class="panel">
+    <div class="f" style="margin-bottom:14px"><label>淘寶訂單匯出檔(.xlsx / .csv)</label>
+      <input type="file" id="impFile" accept=".xlsx,.xls,.csv" onchange="readImportFile(this)"></div>
+    <div id="mapBox" style="display:none">
+      <p class="hint">已自動判斷欄位對應,若不正確請手動調整。標 * 為必填。</p>
+      <div class="frow" id="mapRow" style="margin-bottom:16px"></div>
+      <div class="scroll" style="margin-bottom:16px"><table id="prevTable"></table></div>
+      <button class="btn" id="impBtn" onclick="doImport()">匯入</button>
+    </div>
+    <div class="log" id="impLog"></div>
+  </div>
+  <p class="hint">同一訂單多列(一列一品項)會自動合併;已存在的訂單編號會略過,重複匯入不會產生重複資料。訂單金額取「實付款」欄位;若無此欄則以品項小計加總。</p>
+</section>
+
+</main>
+
+<!-- 分配品項 modal -->
+<div class="mask" id="assignMask">
+  <div class="modal">
+    <div class="mh"><b id="assignTitle">分配品項</b><button class="btn-x" onclick="closeAssign()">關閉</button></div>
+    <div class="mb" id="assignBody"></div>
+    <div class="mf"><button class="btn-g btn" onclick="closeAssign()">取消</button><button class="btn" onclick="saveAssign()">儲存</button></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+/* ═══════════ 設定:貼上與貨款系統相同的 anon key ═══════════ */
+const SUPABASE_URL = 'https://knkpxeynkecfsmonmzvi.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtua3B4ZXlua2VjZnNtb25tenZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyODUwNDEsImV4cCI6MjA5NDg2MTA0MX0.NUsXfRAEEG2RSeP_uwDGrvWdsuFj--WC6z10u55wiW0';
+/* ═══════════════════════════════════════════════════════ */
+
+let db = null;
+const S = { orders:[], items:[], batches:[], rate:4.5 };
+const $ = id => document.getElementById(id);
+const esc = s => String(s??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const n0 = v => (Math.round(+v||0)).toLocaleString('en-US');
+const n1 = v => (+v||0).toLocaleString('en-US',{minimumFractionDigits:1,maximumFractionDigits:1});
+const n2 = v => (+v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+/* ── tabs ── */
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('main section').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); $('v-'+b.dataset.v).classList.add('on');
+});
+
+/* ── init ── */
+async function init(){
+  if(!SUPABASE_KEY){ $('setupBox').style.display='block'; $('connTx').textContent='未設定'; return; }
+  db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  try{ await loadAll(); $('connDot').className='dot ok'; $('connTx').textContent='已連線'; }
+  catch(e){ $('connDot').className='dot err'; $('connTx').textContent='連線失敗'; $('setupBox').style.display='block';
+    $('setupBox').innerHTML='<b>連線失敗</b><br>'+esc(e.message)+'<br>請確認 anon key 正確,且已在 SQL Editor 執行過 taobao_supabase.sql。'; }
+}
+
+async function loadAll(){
+  const [o,i,b,st] = await Promise.all([
+    db.from('taobao_orders').select('*').order('order_date',{ascending:false}).order('id',{ascending:false}),
+    db.from('taobao_items').select('*').order('id'),
+    db.from('taobao_batches').select('*').order('arrive_date',{ascending:false}).order('id',{ascending:false}),
+    db.from('taobao_settings').select('*')
+  ]);
+  for(const r of [o,i,b,st]) if(r.error) throw r.error;
+  S.orders=o.data; S.items=i.data; S.batches=b.data;
+  const rr = st.data.find(x=>x.key==='rate'); if(rr) S.rate=+rr.value||4.5;
+  $('rateInput').value=S.rate;
+  renderAll();
+}
+function renderAll(){ renderOverview(); buildMonthFilter(); renderOrders(); renderBatches(); renderCosts(); }
+
+/* ── 成本核心 ── */
+const orderById = id => S.orders.find(o=>o.id===id);
+const batchById = id => S.batches.find(b=>b.id===id);
+const batchFee = b => (+b.shipping_twd||0)+(+b.tax_twd||0)+(+b.misc_twd||0);
+function orderTwd(o){ return (o.paid_twd!=null && o.paid_twd!=='') ? +o.paid_twd : (+o.total_rmb||0)*S.rate; }
+function goodsTwd(it){
+  const o = orderById(it.order_id);
+  if(!o) return (+it.subtotal_rmb||0)*S.rate;
+  const tot = +o.total_rmb||0;
+  if(!tot) return (+it.subtotal_rmb||0)*S.rate;
+  return orderTwd(o) * (+it.subtotal_rmb||0) / tot;
+}
+function feeShare(it){
+  if(!it.batch_id) return 0;
+  const b = batchById(it.batch_id); if(!b) return 0;
+  const mates = S.items.filter(x=>x.batch_id===it.batch_id);
+  const sum = mates.reduce((a,x)=>a+(+x.subtotal_rmb||0),0);
+  if(!sum) return batchFee(b)/(mates.length||1);
+  return batchFee(b) * (+it.subtotal_rmb||0) / sum;
+}
+const landed = it => goodsTwd(it)+feeShare(it);
+
+/* ── 總覽 ── */
+function renderOverview(){
+  const ym = new Date().toISOString().slice(0,7);
+  const mo = S.orders.filter(o=>(o.order_date||'').startsWith(ym));
+  const moIds = new Set(mo.map(o=>o.id));
+  const moItems = S.items.filter(i=>moIds.has(i.order_id));
+  $('ovUnrec').innerHTML = S.orders.filter(o=>!o.reconciled).length + '<small>筆</small>';
+  $('ovUnbatch').innerHTML = S.items.filter(i=>!i.batch_id).length + '<small>項</small>';
+  $('ovRmb').innerHTML = '¥ '+n0(mo.reduce((a,o)=>a+(+o.total_rmb||0),0));
+  $('ovTwd').innerHTML = 'NT '+n0(moItems.reduce((a,i)=>a+landed(i),0));
+}
+async function saveRate(){
+  const v = +$('rateInput').value||4.5; S.rate=v;
+  await db.from('taobao_settings').upsert({key:'rate',value:String(v)});
+  renderAll();
+}
+
+/* ── 訂單 ── */
+function buildMonthFilter(){
+  const ms=[...new Set(S.orders.map(o=>(o.order_date||'').slice(0,7)).filter(Boolean))].sort().reverse();
+  const cur=$('fMonth').value;
+  $('fMonth').innerHTML='<option value="">全部</option>'+ms.map(m=>`<option${m===cur?' selected':''}>${m}</option>`).join('');
+}
+function renderOrders(){
+  const m=$('fMonth').value, rec=$('fRec').value, kw=($('fOrderKw').value||'').trim().toLowerCase();
+  let list=S.orders.filter(o=>
+    (!m||(o.order_date||'').startsWith(m)) &&
+    (rec===''||(rec==='1')===!!o.reconciled) &&
+    (!kw||(o.order_no||'').toLowerCase().includes(kw)||(o.shop_name||'').toLowerCase().includes(kw)));
+  if(!list.length){ $('ordersWrap').innerHTML='<div class="empty">沒有符合的訂單</div>'; return; }
+  let sumR=0,sumT=0;
+  const rows=list.map(o=>{
+    sumR+=+o.total_rmb||0; sumT+=orderTwd(o);
+    const rate=(+o.total_rmb&&o.paid_twd)?(+o.paid_twd/+o.total_rmb):null;
+    const off=rate&&(rate<3.8||rate>5.2);
+    const its=S.items.filter(i=>i.order_id===o.id);
+    const itxt=its.map(i=>esc(i.product_name)+(i.spec?'('+esc(i.spec)+')':'')+' ×'+(+i.qty||1)).join('、');
+    return `<tr>
+      <td class="num">${esc(o.order_date||'')}</td>
+      <td class="num" style="font-size:12px">${esc(o.order_no)}</td>
+      <td>${esc(o.shop_name||'')}</td>
+      <td class="r num">${n2(o.total_rmb)}</td>
+      <td class="r"><input type="number" class="mini" step="1" value="${o.paid_twd??''}" onchange="setPaid(${o.id},this.value)"></td>
+      <td class="r num${off?' rate-off':''}">${rate?n2(rate):'–'}</td>
+      <td>${o.reconciled?'<span class="chip ok">已對帳</span>':'<span class="chip">未對帳</span>'}</td>
+      <td><button class="btn btn-s ${o.reconciled?'btn-g':''}" onclick="toggleRec(${o.id})">${o.reconciled?'取消':'核對'}</button>
+          <button class="btn-x" onclick="delOrder(${o.id})">刪除</button></td>
+    </tr>
+    <tr class="sub-tr"><td colspan="8">${itxt||'(無品項)'}</td></tr>`;
+  }).join('');
+  $('ordersWrap').innerHTML=`<table>
+    <thead><tr><th>日期</th><th>訂單編號</th><th>店鋪</th><th class="r">實付 RMB</th><th class="r">實付 TWD</th><th class="r">匯率</th><th>狀態</th><th></th></tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr><td colspan="3">合計 ${list.length} 筆</td><td class="r num">${n2(sumR)}</td><td class="r num">${n0(sumT)}</td><td colspan="3"></td></tr></tfoot>
+  </table>`;
+}
+async function setPaid(id,v){
+  await db.from('taobao_orders').update({paid_twd:v===''?null:+v}).eq('id',id);
+  const o=orderById(id); if(o)o.paid_twd=v===''?null:+v;
+  renderOrders(); renderOverview(); renderCosts();
+}
+async function toggleRec(id){
+  const o=orderById(id);
+  await db.from('taobao_orders').update({reconciled:!o.reconciled}).eq('id',id);
+  o.reconciled=!o.reconciled; renderOrders(); renderOverview();
+}
+async function delOrder(id){
+  const o=orderById(id);
+  if(!confirm('刪除訂單 '+o.order_no+' 及其所有品項?')) return;
+  await db.from('taobao_orders').delete().eq('id',id);
+  await loadAll();
+}
+
+/* ── 集運批次 ── */
+async function addBatch(){
+  const no=$('bNo').value.trim(); if(!no) return alert('請填批次編號');
+  const {error}=await db.from('taobao_batches').insert({
+    batch_no:no, arrive_date:$('bDate').value||null,
+    shipping_twd:+$('bShip').value||0, tax_twd:+$('bTax').value||0,
+    misc_twd:+$('bMisc').value||0, note:$('bNote').value.trim()||null });
+  if(error) return alert(error.message);
+  $('bNo').value='';$('bNote').value='';$('bShip').value=0;$('bTax').value=0;$('bMisc').value=0;
+  await loadAll();
+}
+function renderBatches(){
+  if(!S.batches.length){ $('batchList').innerHTML='<div class="empty" style="border:1px solid var(--line);background:var(--card)">尚無批次。到貨一批就建一批,再把品項分進去,系統會自動分攤運雜費。</div>'; return; }
+  $('batchList').innerHTML=S.batches.map(b=>{
+    const its=S.items.filter(i=>i.batch_id===b.id);
+    const sumR=its.reduce((a,i)=>a+(+i.subtotal_rmb||0),0);
+    const rows=its.map(i=>{
+      const o=orderById(i.order_id);
+      return `<tr><td class="pname">${esc(i.product_name)}${i.spec?' <span style="color:var(--slate)">'+esc(i.spec)+'</span>':''}</td>
+        <td class="num" style="font-size:12px">${esc(o?o.order_no:'')}</td>
+        <td class="r num">${+i.qty||1}</td>
+        <td class="r num">${n2(i.subtotal_rmb)}</td>
+        <td class="r num">${n0(feeShare(i))}</td>
+        <td><button class="btn-x" onclick="unassign(${i.id})">移出</button></td></tr>`;
+    }).join('');
+    return `<div class="panel">
+      <div class="frow" style="margin-bottom:12px;align-items:baseline">
+        <b style="letter-spacing:.08em">${esc(b.batch_no)}</b>
+        <span class="hint" style="margin:0">${esc(b.arrive_date||'')}${b.note?'・'+esc(b.note):''}</span>
+        <span class="num hint" style="margin:0 0 0 auto">運費 ${n0(b.shipping_twd)}・稅 ${n0(b.tax_twd)}・雜費 ${n0(b.misc_twd)},合計 <b>${n0(batchFee(b))}</b>・品項 RMB ${n2(sumR)}</span>
+        <button class="btn btn-g btn-s" onclick="openAssign(${b.id})">分配品項</button>
+        <button class="btn-x" onclick="delBatch(${b.id})">刪除</button>
+      </div>
+      ${its.length?`<div class="scroll"><table>
+        <thead><tr><th>商品</th><th>訂單</th><th class="r">數量</th><th class="r">RMB 小計</th><th class="r">分攤 TWD</th><th></th></tr></thead>
+        <tbody>${rows}</tbody></table></div>`:'<p class="hint" style="margin:0">尚未分配品項</p>'}
+    </div>`;
+  }).join('');
+}
+async function delBatch(id){
+  if(!confirm('刪除此批次?品項會退回未分批狀態。')) return;
+  await db.from('taobao_batches').delete().eq('id',id);
+  await loadAll();
+}
+async function unassign(itemId){
+  await db.from('taobao_items').update({batch_id:null}).eq('id',itemId);
+  const it=S.items.find(i=>i.id===itemId); if(it)it.batch_id=null;
+  renderBatches(); renderCosts(); renderOverview();
+}
+
+/* 分配 modal */
+let assignBatchId=null;
+function openAssign(bid){
+  assignBatchId=bid;
+  const b=batchById(bid);
+  $('assignTitle').textContent='分配品項 — '+b.batch_no;
+  const pool=S.items.filter(i=>!i.batch_id||i.batch_id===bid);
+  if(!pool.length){ $('assignBody').innerHTML='<p class="hint">所有品項都已分配到其他批次。</p>'; }
+  else{
+    $('assignBody').innerHTML=pool.map(i=>{
+      const o=orderById(i.order_id);
+      return `<label class="mrow"><input type="checkbox" data-item="${i.id}" ${i.batch_id===bid?'checked':''}>
+        <span class="mi">${esc(i.product_name)}${i.spec?' <span class="mn">'+esc(i.spec)+'</span>':''}
+        <span class="mn">×${+i.qty||1}・¥${n2(i.subtotal_rmb)}・${esc(o?(o.order_date||''):'')} ${esc(o?o.order_no:'')}</span></span></label>`;
+    }).join('');
+  }
+  $('assignMask').classList.add('on');
+}
+function closeAssign(){ $('assignMask').classList.remove('on'); assignBatchId=null; }
+async function saveAssign(){
+  const boxes=[...$('assignBody').querySelectorAll('input[type=checkbox]')];
+  const on=boxes.filter(b=>b.checked).map(b=>+b.dataset.item);
+  const off=boxes.filter(b=>!b.checked).map(b=>+b.dataset.item);
+  if(on.length) await db.from('taobao_items').update({batch_id:assignBatchId}).in('id',on);
+  if(off.length) await db.from('taobao_items').update({batch_id:null}).in('id',off).eq('batch_id',assignBatchId);
+  closeAssign(); await loadAll();
+}
+
+/* ── 商品成本 ── */
+function renderCosts(){
+  const bsel=$('fCostBatch'); const cur=bsel.value;
+  bsel.innerHTML='<option value="">全部</option><option value="none"'+(cur==='none'?' selected':'')+'>未分批</option>'+
+    S.batches.map(b=>`<option value="${b.id}"${String(b.id)===cur?' selected':''}>${esc(b.batch_no)}</option>`).join('');
+  const kw=($('fCostKw').value||'').trim().toLowerCase();
+  let list=S.items.filter(i=>
+    (!kw||(i.product_name||'').toLowerCase().includes(kw)||(i.spec||'').toLowerCase().includes(kw)) &&
+    (bsel.value===''||(bsel.value==='none'?!i.batch_id:String(i.batch_id)===bsel.value)));
+  if(!list.length){ $('costsWrap').innerHTML='<div class="empty">沒有品項。先到「匯入訂單」把淘寶匯出檔匯進來。</div>'; return; }
+  let tG=0,tF=0,tL=0;
+  const rows=list.map(i=>{
+    const o=orderById(i.order_id), b=batchById(i.batch_id);
+    const g=goodsTwd(i), f=feeShare(i), l=g+f, q=+i.qty||1;
+    tG+=g;tF+=f;tL+=l;
+    const est=!(o&&o.paid_twd!=null&&o.paid_twd!=='');
+    return `<tr>
+      <td class="num">${esc(o?(o.order_date||''):'')}</td>
+      <td class="pname">${esc(i.product_name)}${i.spec?' <span style="color:var(--slate)">'+esc(i.spec)+'</span>':''}</td>
+      <td class="r num">${q}</td>
+      <td class="r num">${n2(i.subtotal_rmb)}</td>
+      <td class="r num">${n0(g)}${est?' <span class="chip" style="font-size:10px;padding:0 5px">估</span>':''}</td>
+      <td class="r num">${n0(f)}</td>
+      <td class="r num"><b>${n0(l)}</b></td>
+      <td class="r num">${n1(l/q)}</td>
+      <td>${b?'<span class="chip ok">'+esc(b.batch_no)+'</span>':'<span class="chip warn">未分批</span>'}</td>
+    </tr>`;
+  }).join('');
+  $('costsWrap').innerHTML=`<table>
+    <thead><tr><th>日期</th><th>商品</th><th class="r">數量</th><th class="r">RMB 小計</th><th class="r">商品 TWD</th><th class="r">運雜分攤</th><th class="r">落地成本</th><th class="r">單件成本</th><th>批次</th></tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr><td colspan="4">合計 ${list.length} 項</td><td class="r num">${n0(tG)}</td><td class="r num">${n0(tF)}</td><td class="r num">${n0(tL)}</td><td colspan="2"></td></tr></tfoot>
+  </table>`;
+}
+function exportCosts(){
+  const head=['日期','訂單編號','商品','規格','數量','單價RMB','小計RMB','商品成本TWD','運雜分攤TWD','落地成本TWD','單件成本TWD','批次'];
+  const lines=S.items.map(i=>{
+    const o=orderById(i.order_id), b=batchById(i.batch_id);
+    const g=goodsTwd(i), f=feeShare(i), l=g+f, q=+i.qty||1;
+    const c=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+    return [c(o?o.order_date:''),c(o?o.order_no:''),c(i.product_name),c(i.spec),q,+i.price_rmb||0,+i.subtotal_rmb||0,
+      Math.round(g),Math.round(f),Math.round(l),(l/q).toFixed(1),c(b?b.batch_no:'')].join(',');
+  });
+  const blob=new Blob(['\uFEFF'+head.join(',')+'\n'+lines.join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='淘寶商品成本_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+
+/* ── 匯入 ── */
+const FIELDS=[
+  {k:'order_no', t:'訂單編號 *', keys:['订单编号','訂單編號','订单号','主订单编号']},
+  {k:'order_date', t:'下單時間', keys:['订单创建时间','下单时间','拍下时间','订单付款时间','創建時間']},
+  {k:'shop', t:'店鋪', keys:['店铺名称','卖家会员名','卖家昵称','店鋪名稱','商家名称']},
+  {k:'product', t:'商品名稱 *', keys:['商品标题','商品名称','宝贝标题','商品名稱','标题']},
+  {k:'spec', t:'規格/顏色', keys:['商品属性','颜色分类','规格','sku','套餐信息','商品規格']},
+  {k:'qty', t:'數量', keys:['购买数量','商品数量','数量','件数']},
+  {k:'price', t:'單價 RMB', keys:['商品价格','商品单价','单价','价格']},
+  {k:'paid', t:'訂單實付 RMB', keys:['实付款','订单实付金额','买家实际支付金额','实付金额','实际支付金额']},
+  {k:'status', t:'訂單狀態', keys:['订单状态','交易状态','訂單狀態']},
+];
+let impHeaders=[], impRows=[];
+
+function readImportFile(inp){
+  const f=inp.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=e=>{
+    const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
+    const ws=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+    // 找標題列:含「订单」或「商品」關鍵字的第一列
+    let hi=rows.findIndex(r=>r.some(c=>/订单|訂單|商品/.test(String(c))));
+    if(hi<0) hi=0;
+    impHeaders=rows[hi].map(h=>String(h).trim());
+    impRows=rows.slice(hi+1).filter(r=>r.some(c=>String(c).trim()!==''));
+    buildMapping(); $('mapBox').style.display='block';
+    $('impLog').textContent='讀到 '+impRows.length+' 列資料。';
+  };
+  rd.readAsArrayBuffer(f);
+}
+function buildMapping(){
+  $('mapRow').innerHTML=FIELDS.map(f=>{
+    const guess=impHeaders.findIndex(h=>f.keys.some(k=>h.toLowerCase().includes(k.toLowerCase())));
+    return `<div class="f"><label>${f.t}</label><select id="map_${f.k}">
+      <option value="">(無)</option>
+      ${impHeaders.map((h,i)=>`<option value="${i}"${i===guess?' selected':''}>${esc(h)}</option>`).join('')}
+    </select></div>`;
+  }).join('');
+  preview();
+  FIELDS.forEach(f=>$('map_'+f.k).onchange=preview);
+}
+const mapIdx=k=>{const v=$('map_'+k).value;return v===''?-1:+v;};
+const cell=(r,k)=>{const i=mapIdx(k);return i<0?'':r[i];};
+function parseDate(v){
+  if(v instanceof Date && !isNaN(v)) return v.toISOString().slice(0,10);
+  const s=String(v).trim(); if(!s) return null;
+  const m=s.match(/(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})/);
+  if(m) return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
+  return null;
+}
+const num=v=>{const n=parseFloat(String(v).replace(/[¥￥,\s元]/g,''));return isNaN(n)?0:n;};
+function preview(){
+  const sample=impRows.slice(0,5);
+  $('prevTable').innerHTML='<thead><tr><th>訂單編號</th><th>日期</th><th>商品</th><th>規格</th><th class="r">數量</th><th class="r">單價</th><th class="r">實付</th></tr></thead><tbody>'+
+    sample.map(r=>`<tr><td class="num" style="font-size:12px">${esc(cell(r,'order_no'))}</td><td class="num">${esc(parseDate(cell(r,'order_date'))||'')}</td><td class="pname">${esc(cell(r,'product'))}</td><td>${esc(cell(r,'spec'))}</td><td class="r num">${esc(cell(r,'qty'))}</td><td class="r num">${esc(cell(r,'price'))}</td><td class="r num">${esc(cell(r,'paid'))}</td></tr>`).join('')+'</tbody>';
+}
+async function doImport(){
+  if(mapIdx('order_no')<0||mapIdx('product')<0) return alert('「訂單編號」與「商品名稱」為必填欄位');
+  $('impBtn').disabled=true;
+  try{
+    // 依訂單編號分組
+    const groups=new Map();
+    for(const r of impRows){
+      const no=String(cell(r,'order_no')).trim().replace(/^'|'$/g,'');
+      if(!no) continue;
+      if(!groups.has(no)) groups.set(no,{no, date:parseDate(cell(r,'order_date')), shop:String(cell(r,'shop')).trim(),
+        status:String(cell(r,'status')).trim(), paid:num(cell(r,'paid')), items:[]});
+      const g=groups.get(no);
+      const qty=num(cell(r,'qty'))||1, price=num(cell(r,'price'));
+      g.items.push({product_name:String(cell(r,'product')).trim(), spec:String(cell(r,'spec')).trim()||null,
+        qty, price_rmb:price, subtotal_rmb:+(price*qty).toFixed(2)});
+      if(!g.paid) g.paid=num(cell(r,'paid'));
+    }
+    // 略過已存在的訂單
+    const {data:ex,error:e1}=await db.from('taobao_orders').select('order_no');
+    if(e1) throw e1;
+    const exist=new Set(ex.map(x=>x.order_no));
+    const fresh=[...groups.values()].filter(g=>!exist.has(g.no));
+    const skipped=groups.size-fresh.length;
+    if(!fresh.length){ $('impLog').textContent='沒有新訂單('+skipped+' 筆已存在,略過)。'; $('impBtn').disabled=false; return; }
+    // 寫入訂單
+    const payload=fresh.map(g=>({order_no:g.no, order_date:g.date, shop_name:g.shop||null, status:g.status||null,
+      total_rmb: g.paid || +g.items.reduce((a,i)=>a+i.subtotal_rmb,0).toFixed(2)}));
+    const {data:ins,error:e2}=await db.from('taobao_orders').insert(payload).select('id,order_no');
+    if(e2) throw e2;
+    const idMap=new Map(ins.map(x=>[x.order_no,x.id]));
+    // 寫入品項
+    const itemPayload=[];
+    for(const g of fresh) for(const it of g.items) itemPayload.push({...it, order_id:idMap.get(g.no)});
+    const {error:e3}=await db.from('taobao_items').insert(itemPayload);
+    if(e3) throw e3;
+    $('impLog').textContent='完成:新增 '+fresh.length+' 筆訂單、'+itemPayload.length+' 個品項'+(skipped?';'+skipped+' 筆已存在,略過。':'。');
+    $('mapBox').style.display='none'; $('impFile').value='';
+    await loadAll();
+  }catch(err){ $('impLog').textContent='匯入失敗:'+err.message; }
+  $('impBtn').disabled=false;
+}
+
+init();
+</script>
+</body>
+</html>
