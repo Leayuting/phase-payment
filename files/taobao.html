@@ -183,6 +183,7 @@ code{font-family:'Inter',monospace;font-size:12px;background:#EDE8DC;padding:1px
 <section id="v-costs">
   <div class="panel"><div class="frow">
     <div class="f" style="flex:1;min-width:180px"><label>搜尋商品</label><input id="fCostKw" oninput="renderCosts()"></div>
+    <div class="f"><label>月份</label><select id="fCostMonth" onchange="renderCosts()"><option value="">全部</option></select></div>
     <div class="f"><label>批次</label><select id="fCostBatch" onchange="renderCosts()"><option value="">全部</option></select></div>
     <button class="btn btn-g" onclick="exportCosts()">匯出 CSV</button>
   </div></div>
@@ -288,7 +289,7 @@ const landed = it => goodsTwd(it)+feeShare(it);
 /* ── 總覽 ── */
 function renderOverview(){
   const ym = new Date().toISOString().slice(0,7);
-  const mo = S.orders.filter(o=>(o.order_date||'').startsWith(ym));
+  const mo = S.orders.filter(o=>o.month===ym);
   const moIds = new Set(mo.map(o=>o.id));
   const moItems = S.items.filter(i=>moIds.has(i.order_id));
   $('ovUnrec').innerHTML = S.orders.filter(o=>!o.reconciled).length + '<small>筆</small>';
@@ -303,15 +304,18 @@ async function saveRate(){
 }
 
 /* ── 訂單 ── */
+function monthList(){ return [...new Set(S.orders.map(o=>o.month).filter(Boolean))].sort().reverse(); }
 function buildMonthFilter(){
-  const ms=[...new Set(S.orders.map(o=>(o.order_date||'').slice(0,7)).filter(Boolean))].sort().reverse();
+  const ms=monthList();
   const cur=$('fMonth').value;
   $('fMonth').innerHTML='<option value="">全部</option>'+ms.map(m=>`<option${m===cur?' selected':''}>${m}</option>`).join('');
+  const curC=$('fCostMonth').value;
+  $('fCostMonth').innerHTML='<option value="">全部</option>'+ms.map(m=>`<option${m===curC?' selected':''}>${m}</option>`).join('');
 }
 function renderOrders(){
   const m=$('fMonth').value, rec=$('fRec').value, kw=($('fOrderKw').value||'').trim().toLowerCase();
   let list=S.orders.filter(o=>
-    (!m||(o.order_date||'').startsWith(m)) &&
+    (!m||o.month===m) &&
     (rec===''||(rec==='1')===!!o.reconciled) &&
     (!kw||(o.order_no||'').toLowerCase().includes(kw)||(o.shop_name||'').toLowerCase().includes(kw)));
   if(!list.length){ $('ordersWrap').innerHTML='<div class="empty">沒有符合的訂單</div>'; return; }
@@ -449,9 +453,11 @@ function renderCosts(){
   bsel.innerHTML='<option value="">全部</option><option value="none"'+(cur==='none'?' selected':'')+'>未分批</option>'+
     S.batches.map(b=>`<option value="${b.id}"${String(b.id)===cur?' selected':''}>${esc(b.batch_no)}</option>`).join('');
   const kw=($('fCostKw').value||'').trim().toLowerCase();
+  const cm=$('fCostMonth').value;
   let list=S.items.filter(i=>
     (!kw||(i.product_name||'').toLowerCase().includes(kw)||(i.spec||'').toLowerCase().includes(kw)) &&
-    (bsel.value===''||(bsel.value==='none'?!i.batch_id:String(i.batch_id)===bsel.value)));
+    (bsel.value===''||(bsel.value==='none'?!i.batch_id:String(i.batch_id)===bsel.value)) &&
+    (!cm||orderById(i.order_id)?.month===cm));
   if(!list.length){ $('costsWrap').innerHTML='<div class="empty">沒有品項。先到「匯入訂單」把淘寶匯出檔匯進來。</div>'; return; }
   let tG=0,tF=0,tL=0;
   const rows=list.map(i=>{
