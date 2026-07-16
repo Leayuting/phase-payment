@@ -157,13 +157,16 @@ code{font-family:'Inter',monospace;font-size:12px;background:#EDE8DC;padding:1px
 
 <!-- ══ 訂單 ══ -->
 <section id="v-orders">
-  <div class="panel"><div class="frow">
-    <div class="f"><label>日期</label><div style="display:flex;gap:4px;align-items:center"><input type="date" id="fDate" onchange="renderOrders()"><button class="btn-x" onclick="$('fDate').value='';renderOrders()">清除</button></div></div>
-    <div class="f"><label>對帳狀態</label><select id="fRec" onchange="renderOrders()">
-      <option value="">全部</option><option value="0">未對帳</option><option value="1">已對帳</option></select></div>
-    <div class="f" style="flex:1;min-width:160px"><label>搜尋(訂單編號/店鋪/商品)</label><input id="fOrderKw" oninput="renderOrders()" placeholder=""></div>
-    <button class="btn btn-g" id="bulkDelBtn" onclick="bulkDeleteOrders()" disabled>刪除已選取(0)</button>
-  </div></div>
+  <div class="panel">
+    <div class="frow">
+      <div class="f"><label>日期(可加選多個)</label><div style="display:flex;gap:4px;align-items:center"><input type="date" id="fDate"><button class="btn btn-s" onclick="addFilterDate()">加入</button><button class="btn-x" onclick="clearFilterDates()">清除全部</button></div></div>
+      <div class="f"><label>對帳狀態</label><select id="fRec" onchange="renderOrders()">
+        <option value="">全部</option><option value="0">未對帳</option><option value="1">已對帳</option></select></div>
+      <div class="f" style="flex:1;min-width:160px"><label>搜尋(訂單編號/店鋪/商品)</label><input id="fOrderKw" oninput="renderOrders()" placeholder=""></div>
+      <button class="btn btn-g" id="bulkDelBtn" onclick="bulkDeleteOrders()" disabled>刪除已選取(0)</button>
+    </div>
+    <div id="dateChips" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px"></div>
+  </div>
   <div class="scroll" id="ordersWrap"></div>
   <p class="hint" style="margin-top:12px">「實付 TWD」填信用卡帳單上的實際扣款金額;匯率會自動算出,明顯偏離時代表帳單金額或訂單金額需要再確認。核對無誤後按「核對」。</p>
 </section>
@@ -353,11 +356,22 @@ function buildMonthFilter(){
   const curC=$('fCostMonth').value;
   $('fCostMonth').innerHTML='<option value="">全部</option>'+ms.map(m=>`<option${m===curC?' selected':''}>${m}</option>`).join('');
 }
-let selOrders=new Set(), curOrderIds=[];
+let selOrders=new Set(), curOrderIds=[], selDates=new Set();
+function addFilterDate(){
+  const d=$('fDate').value; if(!d) return;
+  selDates.add(d); $('fDate').value='';
+  renderDateChips(); renderOrders();
+}
+function removeFilterDate(d){ selDates.delete(d); renderDateChips(); renderOrders(); }
+function clearFilterDates(){ selDates.clear(); $('fDate').value=''; renderDateChips(); renderOrders(); }
+function renderDateChips(){
+  $('dateChips').innerHTML=[...selDates].sort().map(d=>
+    `<span class="chip ok" style="cursor:pointer" onclick="removeFilterDate('${d}')">${esc(d)} ✕</span>`).join('');
+}
 function renderOrders(){
-  const d=$('fDate').value, rec=$('fRec').value, kw=($('fOrderKw').value||'').trim().toLowerCase();
+  const rec=$('fRec').value, kw=($('fOrderKw').value||'').trim().toLowerCase();
   let list=S.orders.filter(o=>
-    (!d||o.order_date===d) &&
+    (!selDates.size||selDates.has(o.order_date)) &&
     (rec===''||(rec==='1')===!!o.reconciled) &&
     (!kw||(o.order_no||'').toLowerCase().includes(kw)||(o.shop_name||'').toLowerCase().includes(kw)||
       S.items.some(i=>i.order_id===o.id&&(i.product_name||'').toLowerCase().includes(kw))));
