@@ -278,11 +278,14 @@ const qtyNum = q => { const n=parseFloat(q); return (!isNaN(n)&&n>0) ? n : 1; };
 const qtyShow = q => (q==null||q==='') ? '1' : String(q);
 
 /* ── tabs ── */
-document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
-  document.querySelectorAll('nav button').forEach(x=>x.classList.remove('on'));
-  document.querySelectorAll('main section').forEach(x=>x.classList.remove('on'));
-  b.classList.add('on'); $('v-'+b.dataset.v).classList.add('on');
-});
+function showTab(v){
+  document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x.dataset.v===v));
+  document.querySelectorAll('main section').forEach(x=>x.classList.toggle('on',x.id==='v-'+v));
+  if(location.hash!=='#'+v) history.replaceState(null,'','#'+v);
+}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>showTab(b.dataset.v));
+const validTabs=[...document.querySelectorAll('nav button')].map(b=>b.dataset.v);
+showTab(validTabs.includes(location.hash.slice(1))?location.hash.slice(1):'overview');
 
 /* ── init ── */
 async function init(){
