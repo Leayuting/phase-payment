@@ -480,7 +480,6 @@ function renderBatches(){
       return `<tr><td class="pname">${esc(i.product_name)}${i.spec?' <span style="color:var(--slate)">'+esc(i.spec)+'</span>':''}</td>
         <td class="num" style="font-size:12px">${esc(o?o.order_no:'')}</td>
         <td class="r num">${esc(qtyShow(i.qty))}</td>
-        <td class="r num">${n2(i.subtotal_rmb)}</td>
         <td class="r num">${n0(feeShare(i))}</td>
         <td><button class="btn-x" onclick="unassign(${i.id})">移出</button></td></tr>`;
     }).join('');
@@ -497,7 +496,7 @@ function renderBatches(){
         <button class="btn-x" onclick="delBatch(${b.id})">刪除</button>
       </div>
       ${its.length?`<div class="scroll"><table>
-        <thead><tr><th>商品</th><th>訂單</th><th class="r">數量</th><th class="r">RMB 小計</th><th class="r">分攤 TWD</th><th></th></tr></thead>
+        <thead><tr><th>商品</th><th>訂單</th><th class="r">數量</th><th class="r">分攤 TWD</th><th></th></tr></thead>
         <tbody>${rows}</tbody></table></div>`:'<p class="hint" style="margin:0">尚未分配品項</p>'}
     </div>`;
   }).join('');
