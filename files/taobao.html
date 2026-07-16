@@ -158,7 +158,7 @@ code{font-family:'Inter',monospace;font-size:12px;background:#EDE8DC;padding:1px
 <!-- ══ 訂單 ══ -->
 <section id="v-orders">
   <div class="panel"><div class="frow">
-    <div class="f"><label>月份</label><select id="fMonth" onchange="renderOrders()"><option value="">全部</option></select></div>
+    <div class="f"><label>日期</label><div style="display:flex;gap:4px;align-items:center"><input type="date" id="fDate" onchange="renderOrders()"><button class="btn-x" onclick="$('fDate').value='';renderOrders()">清除</button></div></div>
     <div class="f"><label>對帳狀態</label><select id="fRec" onchange="renderOrders()">
       <option value="">全部</option><option value="0">未對帳</option><option value="1">已對帳</option></select></div>
     <div class="f" style="flex:1;min-width:160px"><label>搜尋(訂單編號/店鋪/商品)</label><input id="fOrderKw" oninput="renderOrders()" placeholder=""></div>
@@ -350,16 +350,14 @@ async function saveRate(){
 function monthList(){ return [...new Set(S.orders.map(o=>o.month).filter(Boolean))].sort().reverse(); }
 function buildMonthFilter(){
   const ms=monthList();
-  const cur=$('fMonth').value;
-  $('fMonth').innerHTML='<option value="">全部</option>'+ms.map(m=>`<option${m===cur?' selected':''}>${m}</option>`).join('');
   const curC=$('fCostMonth').value;
   $('fCostMonth').innerHTML='<option value="">全部</option>'+ms.map(m=>`<option${m===curC?' selected':''}>${m}</option>`).join('');
 }
 let selOrders=new Set(), curOrderIds=[];
 function renderOrders(){
-  const m=$('fMonth').value, rec=$('fRec').value, kw=($('fOrderKw').value||'').trim().toLowerCase();
+  const d=$('fDate').value, rec=$('fRec').value, kw=($('fOrderKw').value||'').trim().toLowerCase();
   let list=S.orders.filter(o=>
-    (!m||o.month===m) &&
+    (!d||o.order_date===d) &&
     (rec===''||(rec==='1')===!!o.reconciled) &&
     (!kw||(o.order_no||'').toLowerCase().includes(kw)||(o.shop_name||'').toLowerCase().includes(kw)||
       S.items.some(i=>i.order_id===o.id&&(i.product_name||'').toLowerCase().includes(kw))));
