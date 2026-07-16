@@ -10,6 +10,7 @@
 :root{
   --ink:#1B1816; --paper:#F6F2EB; --stone:#D9D5CF; --olive:#4E5747; --slate:#5E6770;
   --card:#FCFAF5; --line:#E5E0D6; --red:#9C4A3C;
+  --warn-bg:#F8EEE8; --warn-line:#E6D3C2; --ok-bg:#EEF1E8; --ok-line:#D8DFCA;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--paper);color:var(--ink);font-family:'Noto Sans TC',sans-serif;font-size:14px;line-height:1.65;-webkit-font-smoothing:antialiased}
@@ -43,6 +44,13 @@ h2{font-size:15px;font-weight:700;letter-spacing:.12em;margin-bottom:16px}
 .card .v small{font-size:12px;color:var(--slate);font-weight:400;margin-left:4px;letter-spacing:.06em}
 
 .panel{background:var(--card);border:1px solid var(--line);padding:20px;margin-bottom:22px}
+.ordsec{padding:16px;margin-bottom:20px;border:1px solid var(--line)}
+.ordsec .sec-title{font-size:12px;font-weight:500;letter-spacing:.14em;margin-bottom:10px}
+.ordsec.warn{background:var(--warn-bg);border-color:var(--warn-line)}
+.ordsec.warn .sec-title{color:var(--red)}
+.ordsec.ok{background:var(--ok-bg);border-color:var(--ok-line)}
+.ordsec.ok .sec-title{color:var(--olive)}
+.ordsec .scroll{background:var(--card)}
 .frow{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
 .f{display:flex;flex-direction:column;gap:5px}
 .f label{font-size:11px;letter-spacing:.16em;color:var(--slate)}
@@ -367,12 +375,12 @@ function renderOrders(){
   if(!list.length){ $('ordersWrap').innerHTML='<div class="empty">沒有符合的訂單</div>'; updateBulkUI(); return; }
   const unrec=list.filter(o=>!o.reconciled), recd=list.filter(o=>o.reconciled);
   let html='';
-  if(unrec.length) html+=orderSectionHtml('未對帳',unrec);
-  if(recd.length) html+=orderSectionHtml('已對帳',recd);
+  if(unrec.length) html+=orderSectionHtml('未對帳',unrec,'warn');
+  if(recd.length) html+=orderSectionHtml('已對帳',recd,'ok');
   $('ordersWrap').innerHTML=html;
   updateBulkUI();
 }
-function orderSectionHtml(title,sublist){
+function orderSectionHtml(title,sublist,variant){
   let sumR=0,sumT=0;
   const rows=sublist.map(o=>{
     sumR+=+o.total_rmb||0; sumT+=orderTwd(o);
@@ -396,12 +404,14 @@ function orderSectionHtml(title,sublist){
     </tr>
     <tr class="sub-tr"><td colspan="9">${itxt||'(無品項) '}<button class="btn-x" onclick="openAddItem(${o.id})">+ 新增品項</button></td></tr>`;
   }).join('');
-  return `<div class="hint" style="margin:18px 0 8px;font-weight:500;letter-spacing:.1em;font-size:12px">${title}(${sublist.length} 筆)</div>
-  <div class="scroll"><table>
-    <thead><tr><th></th><th>日期</th><th>訂單編號</th><th>店鋪</th><th class="r">實付 RMB</th><th class="r">實付 TWD</th><th class="r">匯率</th><th>狀態</th><th></th></tr></thead>
-    <tbody>${rows}</tbody>
-    <tfoot><tr><td colspan="4">合計 ${sublist.length} 筆</td><td class="r num">${n2(sumR)}</td><td class="r num">${n0(sumT)}</td><td colspan="3"></td></tr></tfoot>
-  </table></div>`;
+  return `<div class="ordsec ${variant}">
+    <div class="sec-title">${title}(${sublist.length} 筆)</div>
+    <div class="scroll"><table>
+      <thead><tr><th></th><th>日期</th><th>訂單編號</th><th>店鋪</th><th class="r">實付 RMB</th><th class="r">實付 TWD</th><th class="r">匯率</th><th>狀態</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr><td colspan="4">合計 ${sublist.length} 筆</td><td class="r num">${n2(sumR)}</td><td class="r num">${n0(sumT)}</td><td colspan="3"></td></tr></tfoot>
+    </table></div>
+  </div>`;
 }
 function updateBulkUI(){
   const n=selOrders.size;
