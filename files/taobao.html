@@ -157,10 +157,10 @@ code{font-family:'Inter',monospace;font-size:12px;background:#EDE8DC;padding:1px
       <div class="f"><label>預設匯率(未填實付 TWD 時採用)</label><input type="number" step="0.01" id="rateInput"></div>
       <div class="f"><label>國外刷卡手續費 %(一律套用)</label><input type="number" step="0.1" id="feeInput"></div>
       <button class="btn btn-s" onclick="saveRate()">儲存</button>
-      <span class="hint" style="margin:0 0 6px 8px">「實付 TWD」請填淘寶上顯示的刷卡金額(未含手續費),手續費由系統統一加算</span>
+      <span class="hint" style="margin:0 0 6px 8px">「實付 TWD」請填淘寶上顯示的刷卡金額(未含手續費);手續費只會加在「商品成本」的落地成本計算,「訂單對帳」顯示的合計是原始金額,方便對信用卡帳單</span>
     </div>
   </div>
-  <p class="hint">成本邏輯:訂單 TWD =(實付 TWD,未填則用 RMB × 匯率)×(1+手續費%);商品成本 TWD(訂單 TWD 按品項 RMB 比例分攤)+ 集運運費×(1+手續費%)・稅金・雜費(批次內按品項 RMB 金額比例分攤)= 落地成本。集運運費因為也是刷卡支付,同樣加算手續費;稅金、雜費不加。</p>
+  <p class="hint">成本邏輯(僅用於「商品成本」分頁的落地成本,不影響「訂單對帳」顯示的金額):成本用訂單 TWD =(實付 TWD,未填則用 RMB × 匯率)×(1+手續費%);商品成本 TWD(成本用訂單 TWD 按品項 RMB 比例分攤)+ 集運運費×(1+手續費%)・稅金・雜費(批次內按品項 RMB 金額比例分攤)= 落地成本。集運運費因為也是刷卡支付,同樣加算手續費;稅金、雜費不加。</p>
 </section>
 
 <!-- ══ 訂單 ══ -->
@@ -319,10 +319,10 @@ const batchById = id => S.batches.find(b=>b.id===id);
 const batchFee = b => withFee(+b.shipping_twd||0)+(+b.tax_twd||0)+(+b.misc_twd||0);
 const rmbToTwd = rmb => (+rmb||0)*S.rate;
 const withFee = twd => twd*(1+S.fee/100);
-function orderTwd(o){
-  const base = (o.paid_twd!=null && o.paid_twd!=='') ? +o.paid_twd : rmbToTwd(o.total_rmb);
-  return withFee(base);
+function orderTwdRaw(o){
+  return (o.paid_twd!=null && o.paid_twd!=='') ? +o.paid_twd : rmbToTwd(o.total_rmb);
 }
+function orderTwd(o){ return withFee(orderTwdRaw(o)); }
 function goodsTwd(it){
   const o = orderById(it.order_id);
   if(!o) return withFee(rmbToTwd(it.subtotal_rmb));
@@ -376,7 +376,7 @@ function renderOrders(){
   curOrderIds=list.map(o=>o.id);
   for(const id of [...selOrders]) if(!curOrderIds.includes(id)) selOrders.delete(id);
   if(!list.length){ $('ordersWrap').innerHTML='<div class="empty">沒有符合的訂單</div>'; updateBulkUI(); return; }
-  const totR=list.reduce((a,o)=>a+(+o.total_rmb||0),0), totT=list.reduce((a,o)=>a+orderTwd(o),0);
+  const totR=list.reduce((a,o)=>a+(+o.total_rmb||0),0), totT=list.reduce((a,o)=>a+orderTwdRaw(o),0);
   let html=`<div class="panel" style="padding:14px 20px;margin-bottom:16px">篩選結果合計 <b class="num">${list.length}</b> 筆・實付 RMB <b class="num">${n2(totR)}</b>・實付 TWD <b class="num">${n0(totT)}</b></div>`;
   const unrec=list.filter(o=>!o.reconciled), recd=list.filter(o=>o.reconciled);
   if(unrec.length) html+=orderSectionHtml('未對帳',unrec,'warn');
@@ -387,7 +387,7 @@ function renderOrders(){
 function orderSectionHtml(title,sublist,variant){
   let sumR=0,sumT=0;
   const rows=sublist.map(o=>{
-    sumR+=+o.total_rmb||0; sumT+=orderTwd(o);
+    sumR+=+o.total_rmb||0; sumT+=orderTwdRaw(o);
     const rate=(+o.total_rmb&&o.paid_twd)?(+o.paid_twd/+o.total_rmb):null;
     const off=rate&&(rate<3.8||rate>5.2);
     const its=S.items.filter(i=>i.order_id===o.id);
