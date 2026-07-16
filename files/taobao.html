@@ -197,7 +197,7 @@ code{font-family:'Inter',monospace;font-size:12px;background:#EDE8DC;padding:1px
 <section id="v-costs">
   <div class="panel"><div class="frow">
     <div class="f" style="flex:1;min-width:180px"><label>搜尋商品</label><input id="fCostKw" oninput="renderCosts()"></div>
-    <div class="f"><label>月份</label><select id="fCostMonth" onchange="renderCosts()"><option value="">全部</option></select></div>
+    <div class="f"><label>日期區間</label><div style="display:flex;gap:4px;align-items:center"><input type="date" id="fCostDateFrom" style="width:140px" onchange="renderCosts()"><span class="hint" style="margin:0">至</span><input type="date" id="fCostDateTo" style="width:140px" onchange="renderCosts()"><button class="btn-x" onclick="$('fCostDateFrom').value='';$('fCostDateTo').value='';renderCosts()">清除</button></div></div>
     <div class="f"><label>批次</label><select id="fCostBatch" onchange="renderCosts()"><option value="">全部</option></select></div>
     <button class="btn btn-g" onclick="exportCosts()">匯出 CSV</button>
     <button class="btn btn-g" id="costsEditBtn" onclick="toggleCostsEdit()">編輯</button>
@@ -314,7 +314,7 @@ async function loadAll(){
   $('feeInput').value=S.fee;
   renderAll();
 }
-function renderAll(){ renderOverview(); buildMonthFilter(); renderOrders(); renderBatches(); renderCosts(); }
+function renderAll(){ renderOverview(); renderOrders(); renderBatches(); renderCosts(); }
 
 /* ── 成本核心 ── */
 const orderById = id => S.orders.find(o=>o.id===id);
@@ -360,12 +360,6 @@ async function saveRate(){
 }
 
 /* ── 訂單 ── */
-function monthList(){ return [...new Set(S.orders.map(o=>o.month).filter(Boolean))].sort().reverse(); }
-function buildMonthFilter(){
-  const ms=monthList();
-  const curC=$('fCostMonth').value;
-  $('fCostMonth').innerHTML='<option value="">全部</option>'+ms.map(m=>`<option${m===curC?' selected':''}>${m}</option>`).join('');
-}
 let selOrders=new Set(), curOrderIds=[];
 function renderOrders(){
   const dFrom=$('fDateFrom').value, dTo=$('fDateTo').value, rec=$('fRec').value, kw=($('fOrderKw').value||'').trim().toLowerCase();
@@ -609,11 +603,13 @@ function renderCosts(){
   bsel.innerHTML='<option value="">全部</option><option value="none"'+(cur==='none'?' selected':'')+'>未分批</option>'+
     S.batches.map(b=>`<option value="${b.id}"${String(b.id)===cur?' selected':''}>${esc(b.batch_no)}</option>`).join('');
   const kw=($('fCostKw').value||'').trim().toLowerCase();
-  const cm=$('fCostMonth').value;
-  let list=S.items.filter(i=>
-    (!kw||(i.product_name||'').toLowerCase().includes(kw)||(i.spec||'').toLowerCase().includes(kw)) &&
-    (bsel.value===''||(bsel.value==='none'?!i.batch_id:String(i.batch_id)===bsel.value)) &&
-    (!cm||orderById(i.order_id)?.month===cm));
+  const dFrom=$('fCostDateFrom').value, dTo=$('fCostDateTo').value;
+  let list=S.items.filter(i=>{
+    const od=orderById(i.order_id)?.order_date||'';
+    return (!kw||(i.product_name||'').toLowerCase().includes(kw)||(i.spec||'').toLowerCase().includes(kw)) &&
+      (bsel.value===''||(bsel.value==='none'?!i.batch_id:String(i.batch_id)===bsel.value)) &&
+      (!dFrom||od>=dFrom) && (!dTo||od<=dTo);
+  });
   list=list.slice().sort((a,b)=>{
     const da=orderById(a.order_id)?.order_date||'', db_=orderById(b.order_id)?.order_date||'';
     return da<db_?-1:da>db_?1:a.id-b.id;
