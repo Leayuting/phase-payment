@@ -673,8 +673,7 @@ const FIELDS=[
   {k:'product', t:'商品名稱 *', keys:['商品标题','商品名称','宝贝标题','商品名稱','标题']},
   {k:'spec', t:'規格/顏色', keys:['商品属性','颜色分类','规格','sku','套餐信息','商品規格']},
   {k:'qty', t:'數量', keys:['购买数量','商品数量','数量','件数']},
-  {k:'price', t:'單價 RMB', keys:['商品价格','商品单价','单价','价格']},
-  {k:'amount', t:'商品小計 RMB(數量×單價,若有此欄優先採用)', keys:['商品金额','小计','商品总价']},
+  {k:'amount', t:'商品小計 RMB *', keys:['商品金额','商品价格','商品单价','单价','小计','商品总价','价格']},
   {k:'paid', t:'訂單實付 RMB', keys:['实付款','订单实付金额','买家实际支付金额','实付金额','实际支付金额']},
   {k:'status', t:'訂單狀態', keys:['订单状态','交易状态','訂單狀態']},
 ];
@@ -720,11 +719,11 @@ function parseDate(v){
 const num=v=>{const n=parseFloat(String(v).replace(/[¥￥,\s元]/g,''));return isNaN(n)?0:n;};
 function preview(){
   const sample=impRows.slice(0,5);
-  $('prevTable').innerHTML='<thead><tr><th>訂單編號</th><th>日期</th><th>商品</th><th>規格</th><th class="r">數量</th><th class="r">單價</th><th class="r">商品小計</th><th class="r">實付</th></tr></thead><tbody>'+
-    sample.map(r=>`<tr><td class="num" style="font-size:12px">${esc(cell(r,'order_no'))}</td><td class="num">${esc(parseDate(cell(r,'order_date'))||'')}</td><td class="pname">${esc(cell(r,'product'))}</td><td>${esc(cell(r,'spec'))}</td><td class="r num">${esc(cell(r,'qty'))}</td><td class="r num">${esc(cell(r,'price'))}</td><td class="r num">${esc(cell(r,'amount'))}</td><td class="r num">${esc(cell(r,'paid'))}</td></tr>`).join('')+'</tbody>';
+  $('prevTable').innerHTML='<thead><tr><th>訂單編號</th><th>日期</th><th>商品</th><th>規格</th><th class="r">數量</th><th class="r">商品小計</th><th class="r">實付</th></tr></thead><tbody>'+
+    sample.map(r=>`<tr><td class="num" style="font-size:12px">${esc(cell(r,'order_no'))}</td><td class="num">${esc(parseDate(cell(r,'order_date'))||'')}</td><td class="pname">${esc(cell(r,'product'))}</td><td>${esc(cell(r,'spec'))}</td><td class="r num">${esc(cell(r,'qty'))}</td><td class="r num">${esc(cell(r,'amount'))}</td><td class="r num">${esc(cell(r,'paid'))}</td></tr>`).join('')+'</tbody>';
 }
 async function doImport(){
-  if(mapIdx('order_no')<0||mapIdx('product')<0) return alert('「訂單編號」與「商品名稱」為必填欄位');
+  if(mapIdx('order_no')<0||mapIdx('product')<0||mapIdx('amount')<0) return alert('「訂單編號」「商品名稱」「商品小計 RMB」為必填欄位');
   $('impBtn').disabled=true;
   try{
     // 依訂單編號分組;淘寶匯出檔多品項訂單只有第一列會填訂單編號,後面品項列該欄空白,
@@ -738,9 +737,8 @@ async function doImport(){
         status:String(cell(r,'status')).trim(), paid:num(cell(r,'paid')), items:[]});
       const g=groups.get(no);
       const qty=num(cell(r,'qty'))||1;
-      const amt=mapIdx('amount')>=0 ? num(cell(r,'amount')) : null;
-      const subtotal = amt!=null ? amt : +(num(cell(r,'price'))*qty).toFixed(2);
-      const price = amt!=null ? +(amt/qty).toFixed(2) : num(cell(r,'price'));
+      const subtotal=num(cell(r,'amount'));
+      const price=+(subtotal/qty).toFixed(2);
       g.items.push({product_name:String(cell(r,'product')).trim(), spec:String(cell(r,'spec')).trim()||null,
         qty:String(qty), price_rmb:price, subtotal_rmb:subtotal});
       if(!g.paid) g.paid=num(cell(r,'paid'));
