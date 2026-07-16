@@ -376,8 +376,9 @@ function renderOrders(){
   curOrderIds=list.map(o=>o.id);
   for(const id of [...selOrders]) if(!curOrderIds.includes(id)) selOrders.delete(id);
   if(!list.length){ $('ordersWrap').innerHTML='<div class="empty">沒有符合的訂單</div>'; updateBulkUI(); return; }
+  const totR=list.reduce((a,o)=>a+(+o.total_rmb||0),0), totT=list.reduce((a,o)=>a+orderTwd(o),0);
+  let html=`<div class="panel" style="padding:14px 20px;margin-bottom:16px">篩選結果合計 <b class="num">${list.length}</b> 筆・實付 RMB <b class="num">${n2(totR)}</b>・實付 TWD <b class="num">${n0(totT)}</b></div>`;
   const unrec=list.filter(o=>!o.reconciled), recd=list.filter(o=>o.reconciled);
-  let html='';
   if(unrec.length) html+=orderSectionHtml('未對帳',unrec,'warn');
   if(recd.length) html+=orderSectionHtml('已對帳',recd,'ok');
   $('ordersWrap').innerHTML=html;
