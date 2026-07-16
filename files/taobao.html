@@ -161,7 +161,7 @@ code{font-family:'Inter',monospace;font-size:12px;background:#EDE8DC;padding:1px
     <div class="f"><label>月份</label><select id="fMonth" onchange="renderOrders()"><option value="">全部</option></select></div>
     <div class="f"><label>對帳狀態</label><select id="fRec" onchange="renderOrders()">
       <option value="">全部</option><option value="0">未對帳</option><option value="1">已對帳</option></select></div>
-    <div class="f" style="flex:1;min-width:160px"><label>搜尋(訂單編號/店鋪)</label><input id="fOrderKw" oninput="renderOrders()" placeholder=""></div>
+    <div class="f" style="flex:1;min-width:160px"><label>搜尋(訂單編號/店鋪/商品)</label><input id="fOrderKw" oninput="renderOrders()" placeholder=""></div>
     <button class="btn btn-g" id="bulkDelBtn" onclick="bulkDeleteOrders()" disabled>刪除已選取(0)</button>
   </div></div>
   <div class="scroll" id="ordersWrap"></div>
@@ -361,7 +361,8 @@ function renderOrders(){
   let list=S.orders.filter(o=>
     (!m||o.month===m) &&
     (rec===''||(rec==='1')===!!o.reconciled) &&
-    (!kw||(o.order_no||'').toLowerCase().includes(kw)||(o.shop_name||'').toLowerCase().includes(kw)));
+    (!kw||(o.order_no||'').toLowerCase().includes(kw)||(o.shop_name||'').toLowerCase().includes(kw)||
+      S.items.some(i=>i.order_id===o.id&&(i.product_name||'').toLowerCase().includes(kw))));
   curOrderIds=list.map(o=>o.id);
   for(const id of [...selOrders]) if(!curOrderIds.includes(id)) selOrders.delete(id);
   if(!list.length){ $('ordersWrap').innerHTML='<div class="empty">沒有符合的訂單</div>'; updateBulkUI(); return; }
