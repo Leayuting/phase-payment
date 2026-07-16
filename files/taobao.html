@@ -602,14 +602,6 @@ async function setQty(id,v){
   const it=S.items.find(i=>i.id===id); if(it)it.qty=q;
   renderBatches(); renderOrders(); renderCosts();
 }
-async function setPriceRmb(id,v){
-  const it=S.items.find(i=>i.id===id); if(!it) return;
-  const price=+v||0;
-  const subtotal=+(price*qtyNum(it.qty)).toFixed(2);
-  await db.from('taobao_items').update({price_rmb:price,subtotal_rmb:subtotal}).eq('id',id);
-  it.price_rmb=price; it.subtotal_rmb=subtotal;
-  renderBatches(); renderOrders(); renderCosts(); renderOverview();
-}
 
 /* ── 商品成本 ── */
 function renderCosts(){
@@ -637,8 +629,6 @@ function renderCosts(){
       <td class="num">${mdFmt(o?o.order_date:'')}</td>
       <td class="pname"><input class="pname-input" value="${esc(i.product_name)}" onchange="setProductName(${i.id},this.value)" ${editMode?'':'disabled'}>${i.spec?' <span style="color:var(--slate)">'+esc(i.spec)+'</span>':''}</td>
       <td class="r"><input type="text" class="mini" style="width:60px;text-align:right" value="${esc(qtyShow(i.qty))}" onchange="setQty(${i.id},this.value)" ${editMode?'':'disabled'}></td>
-      <td class="r"><input type="number" step="0.01" class="mini" style="width:76px;text-align:right" value="${+i.price_rmb||0}" onchange="setPriceRmb(${i.id},this.value)" ${editMode?'':'disabled'}></td>
-      <td class="r num">${n2(i.subtotal_rmb)}</td>
       <td class="r num">${n0(g)}${est?' <span class="chip" style="font-size:10px;padding:0 5px">估</span>':''}</td>
       <td class="r num">${n0(f)}</td>
       <td class="r num"><b>${n0(l)}</b></td>
@@ -647,9 +637,9 @@ function renderCosts(){
     </tr>`;
   }).join('');
   $('costsWrap').innerHTML=`<table>
-    <thead><tr><th>日期</th><th>商品</th><th class="r">數量</th><th class="r">單價 RMB</th><th class="r">RMB 小計</th><th class="r">商品 TWD</th><th class="r">運雜分攤</th><th class="r">落地成本</th><th class="r">單件成本</th><th>批次</th></tr></thead>
+    <thead><tr><th>日期</th><th>商品</th><th class="r">數量</th><th class="r">商品 TWD</th><th class="r">運雜分攤</th><th class="r">落地成本</th><th class="r">單件成本</th><th>批次</th></tr></thead>
     <tbody>${rows}</tbody>
-    <tfoot><tr><td colspan="5">合計 ${list.length} 項</td><td class="r num">${n0(tG)}</td><td class="r num">${n0(tF)}</td><td class="r num">${n0(tL)}</td><td colspan="2"></td></tr></tfoot>
+    <tfoot><tr><td colspan="3">合計 ${list.length} 項</td><td class="r num">${n0(tG)}</td><td class="r num">${n0(tF)}</td><td class="r num">${n0(tL)}</td><td colspan="2"></td></tr></tfoot>
   </table>`;
 }
 function exportCosts(){
