@@ -162,9 +162,10 @@ code{font-family:'Inter',monospace;font-size:12px;background:#EDE8DC;padding:1px
     <div class="f"><label>對帳狀態</label><select id="fRec" onchange="renderOrders()">
       <option value="">全部</option><option value="0">未對帳</option><option value="1">已對帳</option></select></div>
     <div class="f" style="flex:1;min-width:160px"><label>搜尋(訂單編號/店鋪/商品)</label><input id="fOrderKw" oninput="renderOrders()" placeholder=""></div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--slate);margin:0 0 8px"><input type="checkbox" id="ordSelAll" onchange="toggleSelAll(this.checked)">全選</label>
     <button class="btn btn-g" id="bulkDelBtn" onclick="bulkDeleteOrders()" disabled>刪除已選取(0)</button>
   </div></div>
-  <div class="scroll" id="ordersWrap"></div>
+  <div id="ordersWrap"></div>
   <p class="hint" style="margin-top:12px">「實付 TWD」填信用卡帳單上的實際扣款金額;匯率會自動算出,明顯偏離時代表帳單金額或訂單金額需要再確認。核對無誤後按「核對」。</p>
 </section>
 
@@ -364,8 +365,16 @@ function renderOrders(){
   curOrderIds=list.map(o=>o.id);
   for(const id of [...selOrders]) if(!curOrderIds.includes(id)) selOrders.delete(id);
   if(!list.length){ $('ordersWrap').innerHTML='<div class="empty">沒有符合的訂單</div>'; updateBulkUI(); return; }
+  const unrec=list.filter(o=>!o.reconciled), recd=list.filter(o=>o.reconciled);
+  let html='';
+  if(unrec.length) html+=orderSectionHtml('未對帳',unrec);
+  if(recd.length) html+=orderSectionHtml('已對帳',recd);
+  $('ordersWrap').innerHTML=html;
+  updateBulkUI();
+}
+function orderSectionHtml(title,sublist){
   let sumR=0,sumT=0;
-  const rows=list.map(o=>{
+  const rows=sublist.map(o=>{
     sumR+=+o.total_rmb||0; sumT+=orderTwd(o);
     const rate=(+o.total_rmb&&o.paid_twd)?(+o.paid_twd/+o.total_rmb):null;
     const off=rate&&(rate<3.8||rate>5.2);
@@ -387,12 +396,12 @@ function renderOrders(){
     </tr>
     <tr class="sub-tr"><td colspan="9">${itxt||'(無品項) '}<button class="btn-x" onclick="openAddItem(${o.id})">+ 新增品項</button></td></tr>`;
   }).join('');
-  $('ordersWrap').innerHTML=`<table>
-    <thead><tr><th><input type="checkbox" id="ordSelAll" onchange="toggleSelAll(this.checked)"></th><th>日期</th><th>訂單編號</th><th>店鋪</th><th class="r">實付 RMB</th><th class="r">實付 TWD</th><th class="r">匯率</th><th>狀態</th><th></th></tr></thead>
+  return `<div class="hint" style="margin:18px 0 8px;font-weight:500;letter-spacing:.1em;font-size:12px">${title}(${sublist.length} 筆)</div>
+  <div class="scroll"><table>
+    <thead><tr><th></th><th>日期</th><th>訂單編號</th><th>店鋪</th><th class="r">實付 RMB</th><th class="r">實付 TWD</th><th class="r">匯率</th><th>狀態</th><th></th></tr></thead>
     <tbody>${rows}</tbody>
-    <tfoot><tr><td colspan="4">合計 ${list.length} 筆</td><td class="r num">${n2(sumR)}</td><td class="r num">${n0(sumT)}</td><td colspan="3"></td></tr></tfoot>
-  </table>`;
-  updateBulkUI();
+    <tfoot><tr><td colspan="4">合計 ${sublist.length} 筆</td><td class="r num">${n2(sumR)}</td><td class="r num">${n0(sumT)}</td><td colspan="3"></td></tr></tfoot>
+  </table></div>`;
 }
 function updateBulkUI(){
   const n=selOrders.size;
