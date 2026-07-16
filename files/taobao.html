@@ -200,6 +200,9 @@ code{font-family:'Inter',monospace;font-size:12px;background:#EDE8DC;padding:1px
     <div class="f"><label>月份</label><select id="fCostMonth" onchange="renderCosts()"><option value="">全部</option></select></div>
     <div class="f"><label>批次</label><select id="fCostBatch" onchange="renderCosts()"><option value="">全部</option></select></div>
     <button class="btn btn-g" onclick="exportCosts()">匯出 CSV</button>
+    <button class="btn btn-g" id="costsEditBtn" onclick="toggleCostsEdit()">編輯</button>
+    <label id="costsSelAllWrap" style="display:none;align-items:center;gap:6px;font-size:12.5px;color:var(--slate);margin:0 0 8px"><input type="checkbox" id="costsSelAll" onchange="toggleCostsSelAll(this.checked)">全選</label>
+    <button class="btn btn-g" id="costsBulkDelBtn" onclick="bulkDeleteItems()" style="display:none" disabled>刪除已選取(0)</button>
   </div></div>
   <div class="scroll" id="costsWrap"></div>
 </section>
@@ -615,14 +618,17 @@ function renderCosts(){
     const da=orderById(a.order_id)?.order_date||'', db_=orderById(b.order_id)?.order_date||'';
     return da<db_?-1:da>db_?1:a.id-b.id;
   });
-  if(!list.length){ $('costsWrap').innerHTML='<div class="empty">沒有品項。先到「匯入訂單」把淘寶匯出檔匯進來。</div>'; return; }
+  curItemIds=list.map(i=>i.id);
+  for(const id of [...selItems]) if(!curItemIds.includes(id)) selItems.delete(id);
+  if(!list.length){ $('costsWrap').innerHTML='<div class="empty">沒有品項。先到「匯入訂單」把淘寶匯出檔匯進來。</div>'; updateCostsBulkUI(); return; }
   let tG=0,tF=0,tL=0;
   const rows=list.map(i=>{
-    const o=orderById(i.order_id), b=batchById(i.batch_id);
+    const o=orderById(i.order_id);
     const g=goodsTwd(i), f=feeShare(i), l=g+f, q=qtyNum(i.qty);
     tG+=g;tF+=f;tL+=l;
     const est=!(o&&o.paid_twd!=null&&o.paid_twd!=='');
     return `<tr>
+      ${costsEditOn?`<td><input type="checkbox" ${selItems.has(i.id)?'checked':''} onchange="toggleCostsSel(${i.id},this.checked)"></td>`:''}
       <td class="num">${mdFmt(o?o.order_date:'')}</td>
       <td class="pname"><input class="pname-input" value="${esc(i.product_name)}" onchange="setProductName(${i.id},this.value)" ${editMode?'':'disabled'}>${i.spec?' <span style="color:var(--slate)">'+esc(i.spec)+'</span>':''}</td>
       <td class="r"><input type="text" class="mini" style="width:60px;text-align:right" value="${esc(qtyShow(i.qty))}" onchange="setQty(${i.id},this.value)" ${editMode?'':'disabled'}></td>
@@ -630,14 +636,45 @@ function renderCosts(){
       <td class="r num">${n0(f)}</td>
       <td class="r num"><b>${n0(l)}</b></td>
       <td class="r num">${n1(l/q)}</td>
-      <td>${b?'<span class="chip ok">'+esc(b.batch_no)+'</span>':'<span class="chip warn">未分批</span>'}</td>
     </tr>`;
   }).join('');
   $('costsWrap').innerHTML=`<table>
-    <thead><tr><th>日期</th><th>商品</th><th class="r">數量</th><th class="r">商品 TWD</th><th class="r">運雜分攤</th><th class="r">落地成本</th><th class="r">單件成本</th><th>批次</th></tr></thead>
+    <thead><tr>${costsEditOn?'<th></th>':''}<th>日期</th><th>商品</th><th class="r">數量</th><th class="r">商品 TWD</th><th class="r">運雜分攤</th><th class="r">落地成本</th><th class="r">單件成本</th></tr></thead>
     <tbody>${rows}</tbody>
-    <tfoot><tr><td colspan="3">合計 ${list.length} 項</td><td class="r num">${n0(tG)}</td><td class="r num">${n0(tF)}</td><td class="r num">${n0(tL)}</td><td colspan="2"></td></tr></tfoot>
+    <tfoot><tr><td colspan="${costsEditOn?4:3}">合計 ${list.length} 項</td><td class="r num">${n0(tG)}</td><td class="r num">${n0(tF)}</td><td class="r num">${n0(tL)}</td><td></td></tr></tfoot>
   </table>`;
+  updateCostsBulkUI();
+}
+let costsEditOn=false, selItems=new Set(), curItemIds=[];
+function toggleCostsEdit(){
+  costsEditOn=!costsEditOn;
+  if(!costsEditOn) selItems.clear();
+  renderCosts();
+}
+function toggleCostsSel(id,checked){ checked?selItems.add(id):selItems.delete(id); updateCostsBulkUI(); }
+function toggleCostsSelAll(checked){
+  checked? curItemIds.forEach(id=>selItems.add(id)) : curItemIds.forEach(id=>selItems.delete(id));
+  renderCosts();
+}
+function updateCostsBulkUI(){
+  const n=selItems.size;
+  $('costsEditBtn').textContent=costsEditOn?'完成編輯':'編輯';
+  $('costsEditBtn').classList.toggle('btn-g',!costsEditOn);
+  $('costsSelAllWrap').style.display=costsEditOn?'flex':'none';
+  $('costsBulkDelBtn').style.display=costsEditOn?'':'none';
+  $('costsBulkDelBtn').textContent='刪除已選取('+n+')';
+  $('costsBulkDelBtn').disabled=n===0;
+  const all=$('costsSelAll'); if(all) all.checked=curItemIds.length>0 && n===curItemIds.length;
+}
+async function bulkDeleteItems(){
+  const ids=[...selItems];
+  if(!ids.length) return;
+  if(!confirm('刪除選取的 '+ids.length+' 個品項?此動作無法復原。')) return;
+  $('costsBulkDelBtn').disabled=true;
+  const {error}=await db.from('taobao_items').delete().in('id',ids);
+  if(error){ alert(error.message); $('costsBulkDelBtn').disabled=false; return; }
+  selItems.clear();
+  await loadAll();
 }
 function exportCosts(){
   const head=['日期','訂單編號','商品','規格','數量','單價RMB','小計RMB','商品成本TWD','運雜分攤TWD','落地成本TWD','單件成本TWD','批次'];
