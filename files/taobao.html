@@ -160,7 +160,7 @@ code{font-family:'Inter',monospace;font-size:12px;background:#EDE8DC;padding:1px
       <span class="hint" style="margin:0 0 6px 8px">「實付 TWD」請填淘寶上顯示的刷卡金額(未含手續費);「商品成本」的商品TWD與集運運費都會加算手續費,「訂單對帳」顯示的合計是原始金額,方便對信用卡帳單</span>
     </div>
   </div>
-  <p class="hint">成本邏輯(僅用於「商品成本」分頁的落地成本,不影響「訂單對帳」顯示的金額):訂單 TWD =(實付 TWD,未填則用 RMB × 匯率)×(1+手續費%);商品成本 TWD(訂單 TWD 按品項 RMB 比例分攤)+ 集運運費×(1+手續費%)・稅金・雜費(批次內按品項 RMB 金額比例分攤)= 落地成本。稅金、雜費不加手續費。</p>
+  <p class="hint">成本邏輯(僅用於「商品成本」分頁的落地成本,不影響「訂單對帳」顯示的金額):訂單 TWD =(實付 TWD,未填則用 RMB × 匯率)×(1+手續費%);商品成本 TWD = 訂單 TWD ÷ 該訂單品項數(平均分攤,單一品項訂單就直接等於訂單TWD)+ 集運運費×(1+手續費%)・稅金・雜費(批次內按品項 RMB 金額比例分攤)= 落地成本。稅金、雜費不加手續費。</p>
 </section>
 
 <!-- ══ 訂單 ══ -->
@@ -324,10 +324,9 @@ function orderTwdRaw(o){
 }
 function goodsTwd(it){
   const o = orderById(it.order_id);
-  if(!o) return withFee(rmbToTwd(it.subtotal_rmb));
-  const tot = +o.total_rmb||0;
-  if(!tot) return withFee(rmbToTwd(it.subtotal_rmb));
-  return withFee(orderTwdRaw(o)) * (+it.subtotal_rmb||0) / tot;
+  if(!o) return 0;
+  const mates = S.items.filter(x=>x.order_id===it.order_id);
+  return withFee(orderTwdRaw(o)) / (mates.length||1);
 }
 function feeShare(it){
   if(!it.batch_id) return 0;
@@ -601,15 +600,6 @@ async function setQty(id,v){
   const it=S.items.find(i=>i.id===id); if(it)it.qty=q;
   renderBatches(); renderOrders(); renderCosts();
 }
-async function setPriceRmb(id,v){
-  const it=S.items.find(i=>i.id===id); if(!it) return;
-  const price=+v||0;
-  const subtotal=+(price*qtyNum(it.qty)).toFixed(2);
-  await db.from('taobao_items').update({price_rmb:price,subtotal_rmb:subtotal}).eq('id',id);
-  it.price_rmb=price; it.subtotal_rmb=subtotal;
-  renderBatches(); renderOrders(); renderCosts(); renderOverview();
-}
-
 /* ── 商品成本 ── */
 function renderCosts(){
   const bsel=$('fCostBatch'); const cur=bsel.value;
@@ -634,7 +624,7 @@ function renderCosts(){
     const est=!(o&&o.paid_twd!=null&&o.paid_twd!=='');
     return `<tr>
       <td class="num">${mdFmt(o?o.order_date:'')}</td>
-      <td class="pname"><input class="pname-input" value="${esc(i.product_name)}" onchange="setProductName(${i.id},this.value)" ${editMode?'':'disabled'}>${i.spec?' <span style="color:var(--slate)">'+esc(i.spec)+'</span>':''}${(+i.subtotal_rmb||0)===0?` <span class="chip warn">RMB為0</span> <input type="number" step="0.01" class="mini" style="width:80px" placeholder="補單價RMB" onchange="setPriceRmb(${i.id},this.value)" ${editMode?'':'disabled'}>`:''}</td>
+      <td class="pname"><input class="pname-input" value="${esc(i.product_name)}" onchange="setProductName(${i.id},this.value)" ${editMode?'':'disabled'}>${i.spec?' <span style="color:var(--slate)">'+esc(i.spec)+'</span>':''}</td>
       <td class="r"><input type="text" class="mini" style="width:60px;text-align:right" value="${esc(qtyShow(i.qty))}" onchange="setQty(${i.id},this.value)" ${editMode?'':'disabled'}></td>
       <td class="r num">${n0(g)}${est?' <span class="chip" style="font-size:10px;padding:0 5px">估</span>':''}</td>
       <td class="r num">${n0(f)}</td>
