@@ -376,7 +376,7 @@ function renderOrders(){
     ).join('');
     return `<tr>
       <td><input type="checkbox" ${selOrders.has(o.id)?'checked':''} onchange="toggleSel(${o.id},this.checked)"></td>
-      <td class="num">${mdFmt(o.order_date)}</td>
+      <td class="num"><input type="date" class="mini" style="width:132px" value="${esc(o.order_date||'')}" onchange="setOrderDate(${o.id},this.value)" ${editMode?'':'disabled'}></td>
       <td class="num" style="font-size:12px">${esc(o.order_no)}</td>
       <td><input class="pname-input iname" value="${esc(o.shop_name||'')}" onchange="setShopName(${o.id},this.value)" ${editMode?'':'disabled'}></td>
       <td class="r num">${n2(o.total_rmb)}</td>
@@ -425,6 +425,10 @@ async function setShopName(id,v){
   const val=v.trim();
   await db.from('taobao_orders').update({shop_name:val||null}).eq('id',id);
   const o=orderById(id); if(o)o.shop_name=val||null;
+}
+async function setOrderDate(id,v){
+  await db.from('taobao_orders').update({order_date:v||null}).eq('id',id);
+  await loadAll();
 }
 async function toggleRec(id){
   const o=orderById(id);
