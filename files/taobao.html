@@ -217,7 +217,7 @@ code{font-family:'Inter',monospace;font-size:12px;background:#EDE8DC;padding:1px
     </div>
     <div class="log" id="impLog"></div>
   </div>
-  <p class="hint">同一訂單多列(一列一品項)會自動合併;已存在的訂單編號會略過,重複匯入不會產生重複資料。訂單金額取「實付款」欄位;若無此欄則以品項小計加總。</p>
+  <p class="hint">同一訂單多列(一列一品項)會自動合併;已存在的訂單編號不會重複建立,但會拿檔案裡的資料自動修復該訂單下「RMB 小計為 0」的品項(比對商品名稱),不會動到已填的實付TWD、對帳狀態。訂單金額取「實付款」欄位;若無此欄則以品項小計加總。</p>
 </section>
 
 </main>
@@ -745,25 +745,49 @@ async function doImport(){
         qty:String(qty), price_rmb:price, subtotal_rmb:subtotal});
       if(!g.paid) g.paid=num(cell(r,'paid'));
     }
-    // 略過已存在的訂單
-    const {data:ex,error:e1}=await db.from('taobao_orders').select('order_no');
+    // 分成:全新訂單(直接寫入) / 已存在訂單(不重複建立,但用來修復RMB為0的品項)
+    const {data:ex,error:e1}=await db.from('taobao_orders').select('id,order_no');
     if(e1) throw e1;
-    const exist=new Set(ex.map(x=>x.order_no));
-    const fresh=[...groups.values()].filter(g=>!exist.has(g.no));
-    const skipped=groups.size-fresh.length;
-    if(!fresh.length){ $('impLog').textContent='沒有新訂單('+skipped+' 筆已存在,略過)。'; $('impBtn').disabled=false; return; }
-    // 寫入訂單
-    const payload=fresh.map(g=>({order_no:g.no, order_date:g.date, shop_name:g.shop||null, status:g.status||null,
-      total_rmb: g.paid || +g.items.reduce((a,i)=>a+i.subtotal_rmb,0).toFixed(2)}));
-    const {data:ins,error:e2}=await db.from('taobao_orders').insert(payload).select('id,order_no');
-    if(e2) throw e2;
-    const idMap=new Map(ins.map(x=>[x.order_no,x.id]));
-    // 寫入品項
-    const itemPayload=[];
-    for(const g of fresh) for(const it of g.items) itemPayload.push({...it, order_id:idMap.get(g.no)});
-    const {error:e3}=await db.from('taobao_items').insert(itemPayload);
-    if(e3) throw e3;
-    $('impLog').textContent='完成:新增 '+fresh.length+' 筆訂單、'+itemPayload.length+' 個品項'+(skipped?';'+skipped+' 筆已存在,略過。':'。');
+    const exMap=new Map(ex.map(x=>[x.order_no,x.id]));
+    const fresh=[...groups.values()].filter(g=>!exMap.has(g.no));
+    const existing=[...groups.values()].filter(g=>exMap.has(g.no));
+    let newOrderCount=0, newItemCount=0;
+    if(fresh.length){
+      const payload=fresh.map(g=>({order_no:g.no, order_date:g.date, shop_name:g.shop||null, status:g.status||null,
+        total_rmb: g.paid || +g.items.reduce((a,i)=>a+i.subtotal_rmb,0).toFixed(2)}));
+      const {data:ins,error:e2}=await db.from('taobao_orders').insert(payload).select('id,order_no');
+      if(e2) throw e2;
+      const idMap=new Map(ins.map(x=>[x.order_no,x.id]));
+      const itemPayload=[];
+      for(const g of fresh) for(const it of g.items) itemPayload.push({...it, order_id:idMap.get(g.no)});
+      const {error:e3}=await db.from('taobao_items').insert(itemPayload);
+      if(e3) throw e3;
+      newOrderCount=fresh.length; newItemCount=itemPayload.length;
+    }
+    // 修復已存在訂單裡 RMB 小計為 0 的品項(同商品名稱比對),不動訂單本身的實付TWD/對帳狀態
+    let repaired=0;
+    if(existing.length){
+      const orderIds=existing.map(g=>exMap.get(g.no));
+      const {data:existItems,error:e4}=await db.from('taobao_items').select('*').in('order_id',orderIds);
+      if(e4) throw e4;
+      for(const g of existing){
+        const oid=exMap.get(g.no);
+        const itemsForOrder=existItems.filter(i=>i.order_id===oid);
+        const usedIds=new Set();
+        for(const parsed of g.items){
+          if(!parsed.subtotal_rmb) continue;
+          const match=itemsForOrder.find(i=>!usedIds.has(i.id) && (+i.subtotal_rmb||0)===0 && i.product_name===parsed.product_name);
+          if(match){
+            usedIds.add(match.id);
+            const {error:e5}=await db.from('taobao_items').update({price_rmb:parsed.price_rmb,subtotal_rmb:parsed.subtotal_rmb}).eq('id',match.id);
+            if(!e5) repaired++;
+          }
+        }
+      }
+    }
+    const skipped=existing.length;
+    $('impLog').textContent='完成:新增 '+newOrderCount+' 筆訂單、'+newItemCount+' 個品項'
+      +(skipped?';'+skipped+' 筆訂單已存在'+(repaired?',修復其中 '+repaired+' 個原本RMB為0的品項':'')+'。':'。');
     $('mapBox').style.display='none'; $('impFile').value='';
     await loadAll();
   }catch(err){ $('impLog').textContent='匯入失敗:'+err.message; }
