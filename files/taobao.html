@@ -158,7 +158,7 @@ code{font-family:'Inter',monospace;font-size:12px;background:#EDE8DC;padding:1px
 <!-- ══ 訂單 ══ -->
 <section id="v-orders">
   <div class="panel"><div class="frow">
-    <div class="f"><label>日期區間</label><div style="display:flex;gap:4px;align-items:center"><input type="date" id="fDateFrom" onchange="renderOrders()"><span class="hint" style="margin:0">至</span><input type="date" id="fDateTo" onchange="renderOrders()"><button class="btn-x" onclick="$('fDateFrom').value='';$('fDateTo').value='';renderOrders()">清除</button></div></div>
+    <div class="f"><label>日期區間</label><div style="display:flex;gap:4px;align-items:center"><input type="date" id="fDateFrom" style="width:140px" onchange="renderOrders()"><span class="hint" style="margin:0">至</span><input type="date" id="fDateTo" style="width:140px" onchange="renderOrders()"><button class="btn-x" onclick="$('fDateFrom').value='';$('fDateTo').value='';renderOrders()">清除</button></div></div>
     <div class="f"><label>對帳狀態</label><select id="fRec" onchange="renderOrders()">
       <option value="">全部</option><option value="0">未對帳</option><option value="1">已對帳</option></select></div>
     <div class="f" style="flex:1;min-width:160px"><label>搜尋(訂單編號/店鋪/商品)</label><input id="fOrderKw" oninput="renderOrders()" placeholder=""></div>
