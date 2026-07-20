@@ -42,6 +42,10 @@
   .stat-value{font-size:22px; font-weight:700; color:var(--ink);}
 
   .card{background:var(--card); border:1px solid var(--border); border-radius:10px; padding:24px; margin-bottom:16px;}
+  .modal-overlay{position:fixed; inset:0; background:rgba(31,31,28,.5); display:none; align-items:center; justify-content:center; z-index:200; padding:20px;}
+  .modal-box{background:var(--card); border:1px solid var(--border); border-radius:10px; padding:24px; width:460px; max-width:100%;}
+  .modal-box h3{font-size:16px; font-weight:700; margin-bottom:16px;}
+  .modal-box .mactions{display:flex; justify-content:flex-end; gap:10px; margin-top:16px;}
   .card h3{font-size:16px; margin-bottom:18px; color:var(--ink); letter-spacing:.5px; font-weight:700;}
   .form-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
   .form-grid .full{grid-column:1/-1;}
@@ -129,6 +133,20 @@
   <h1>請款申請</h1>
   <p>各部門提出申請 → 主管審核 → 財務撥款 → 發票追蹤</p>
   <a class="nav-link" href="../index.html">→ 廠商匯款紀錄</a>
+  <button class="nav-link" style="cursor:pointer" onclick="openBackupModal()">🗄 備份還原</button>
+</div>
+
+<div class="modal-overlay" id="backup-modal" onclick="if(event.target.id==='backup-modal')closeBackupModal()">
+  <div class="modal-box">
+    <h3>資料備份與還原</h3>
+    <div class="form-label">匯出備份（下載 requests 全部資料）</div>
+    <button class="btn btn-primary" style="margin:8px 0 16px" onclick="exportBackup()">📥 匯出備份</button>
+    <div class="form-label">匯入還原（會把備份檔內容寫回資料庫，只新增／更新，不會刪除現有資料）</div>
+    <input class="form-input" type="file" id="backup-file" accept="application/json" style="margin-top:8px">
+    <button class="btn btn-primary" style="margin-top:8px" onclick="importBackup()">📤 匯入還原</button>
+    <div id="backup-status" style="font-size:12px; color:var(--sub); margin-top:12px; white-space:pre-line;"></div>
+    <div class="mactions"><button class="btn btn-outline" onclick="closeBackupModal()">關閉</button></div>
+  </div>
 </div>
 
 <div class="tabs">
@@ -944,6 +962,56 @@
       requests = res.data || [];
     }catch(e){ console.error('requests load error', e); }
     renderMyRequests(); renderReview();
+  }
+
+  function openBackupModal(){ document.getElementById('backup-status').textContent=''; document.getElementById('backup-modal').style.display='flex'; }
+  function closeBackupModal(){ document.getElementById('backup-modal').style.display='none'; }
+
+  async function exportBackup(){
+    var statusEl = document.getElementById('backup-status');
+    statusEl.textContent = '匯出中...';
+    try{
+      var res = await sb.from('requests').select('*');
+      if(res.error) throw res.error;
+      var dump = { exported_at: new Date().toISOString(), source: '請款申請', tables: { requests: res.data } };
+      var blob = new Blob([JSON.stringify(dump,null,2)], {type:'application/json'});
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = '請款申請備份_'+new Date().toISOString().slice(0,10)+'.json';
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      statusEl.textContent = '匯出完成：requests '+res.data.length+' 筆';
+    }catch(e){
+      console.error(e);
+      statusEl.textContent = '匯出失敗：'+(e.message||e);
+    }
+  }
+
+  async function importBackup(){
+    var fileInput = document.getElementById('backup-file');
+    var file = fileInput.files[0];
+    var statusEl = document.getElementById('backup-status');
+    if(!file){ statusEl.textContent = '請先選擇備份檔案'; return; }
+    if(!confirm('確定要匯入還原嗎？會把備份檔內的資料寫回資料庫（新增或更新，不會刪除現有資料）。')) return;
+    statusEl.textContent = '還原中...';
+    try{
+      var text = await file.text();
+      var dump = JSON.parse(text);
+      if(!dump.tables) throw new Error('檔案格式不正確，找不到 tables');
+      var rows = dump.tables.requests;
+      if(!rows || !rows.length){ statusEl.textContent = '備份檔裡沒有找到 requests 的資料'; return; }
+      for(var i=0;i<rows.length;i+=500){
+        var chunk = rows.slice(i,i+500);
+        var res = await sb.from('requests').upsert(chunk, {onConflict:'id'});
+        if(res.error) throw res.error;
+      }
+      statusEl.textContent = 'requests：還原 '+rows.length+' 筆';
+      loadRequests();
+    }catch(e){
+      console.error(e);
+      statusEl.textContent = '匯入失敗：'+(e.message||e);
+    }
   }
   async function loadRecords(){
     try{
