@@ -136,6 +136,7 @@ label{font-size:10px;color:#5E6770;letter-spacing:1.5px;text-transform:uppercase
   <div class="header-right">
     <a class="nav-link" href="files/request.html">→ 請款申請</a>
     <span class="sync loading" id="sync">⟳ 連線中</span>
+    <button class="nav-link" style="cursor:pointer" onclick="openBackupModal()">🗄 備份還原</button>
     <button class="btn-add" onclick="openForm()">＋ 新增紀錄</button>
   </div>
 </div>
@@ -207,6 +208,21 @@ label{font-size:10px;color:#5E6770;letter-spacing:1.5px;text-transform:uppercase
     <div class="del-actions"><button class="btn-cancel" onclick="closeDelModal()">取消</button><button class="btn-cdel" onclick="confirmDelete()">確認刪除</button></div>
   </div>
 </div>
+<div class="modal-overlay" id="backup-modal" style="display:none" onclick="if(event.target.id==='backup-modal')closeBackupModal()">
+  <div class="modal">
+    <div class="modal-sub">Backup &amp; Restore</div>
+    <h2>資料備份與還原</h2>
+    <div class="fg"><label>匯出備份（下載 records + vendors 全部資料）</label>
+      <button class="btn-save" onclick="exportBackup()">📥 匯出備份</button>
+    </div>
+    <div class="fg"><label>匯入還原（會把備份檔內容寫回資料庫，只新增／更新，不會刪除現有資料）</label>
+      <input class="fi" type="file" id="backup-file" accept="application/json">
+      <button class="btn-save" style="margin-top:8px" onclick="importBackup()">📤 匯入還原</button>
+    </div>
+    <div id="backup-status" style="font-size:12px;color:#5E6770;margin-top:8px;white-space:pre-line"></div>
+    <div class="mactions"><button class="btn-cancel" onclick="closeBackupModal()">關閉</button></div>
+  </div>
+</div>
 <script>
 
 const SB_URL="https://knkpxeynkecfsmonmzvi.supabase.co";
@@ -237,6 +253,65 @@ async function loadAll(){
   }catch(e){setSB('err');console.error('Supabase error:',e);}
   document.getElementById('overlay').style.display='none';
   render();
+}
+
+function openBackupModal(){ document.getElementById('backup-status').textContent=''; document.getElementById('backup-modal').style.display='flex'; }
+function closeBackupModal(){ document.getElementById('backup-modal').style.display='none'; }
+
+async function exportBackup(){
+  var statusEl=document.getElementById('backup-status');
+  statusEl.textContent='匯出中...';
+  try{
+    var tables=['records','vendors'];
+    var dump={exported_at:new Date().toISOString(),source:'廠商匯款紀錄',tables:{}};
+    for(var i=0;i<tables.length;i++){
+      var res=await sb.from(tables[i]).select('*');
+      if(res.error) throw res.error;
+      dump.tables[tables[i]]=res.data;
+    }
+    var blob=new Blob([JSON.stringify(dump,null,2)],{type:'application/json'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url;
+    a.download='廠商匯款紀錄備份_'+new Date().toISOString().slice(0,10)+'.json';
+    document.body.appendChild(a);a.click();a.remove();
+    URL.revokeObjectURL(url);
+    statusEl.textContent='匯出完成：records '+dump.tables.records.length+' 筆、vendors '+dump.tables.vendors.length+' 筆';
+  }catch(e){
+    console.error(e);
+    statusEl.textContent='匯出失敗：'+(e.message||e);
+  }
+}
+
+async function importBackup(){
+  var fileInput=document.getElementById('backup-file');
+  var file=fileInput.files[0];
+  var statusEl=document.getElementById('backup-status');
+  if(!file){ statusEl.textContent='請先選擇備份檔案'; return; }
+  if(!confirm('確定要匯入還原嗎？會把備份檔內的資料寫回資料庫（新增或更新，不會刪除現有資料）。')) return;
+  statusEl.textContent='還原中...';
+  try{
+    var text=await file.text();
+    var dump=JSON.parse(text);
+    if(!dump.tables) throw new Error('檔案格式不正確，找不到 tables');
+    var pk={records:'id',vendors:'id'};
+    var lines=[];
+    for(var t in pk){
+      var rows=dump.tables[t];
+      if(!rows||!rows.length){ continue; }
+      for(var i=0;i<rows.length;i+=500){
+        var chunk=rows.slice(i,i+500);
+        var res=await sb.from(t).upsert(chunk,{onConflict:pk[t]});
+        if(res.error) throw res.error;
+      }
+      lines.push(t+'：還原 '+rows.length+' 筆');
+    }
+    statusEl.textContent=lines.length?lines.join('\n'):'備份檔裡沒有找到 records 或 vendors 的資料';
+    loadAll();
+  }catch(e){
+    console.error(e);
+    statusEl.textContent='匯入失敗：'+(e.message||e);
+  }
 }
 
 function renderPeriodNav(){
