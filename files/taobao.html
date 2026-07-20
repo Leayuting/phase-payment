@@ -125,6 +125,7 @@ code{font-family:'Inter',monospace;font-size:12px;background:#EDE8DC;padding:1px
     <span class="div"></span>
     <span class="sub">淘寶對帳・商品成本</span>
     <button class="btn btn-g btn-s" id="editModeBtn" onclick="toggleEditMode()" style="margin-left:auto;align-self:center">🔒 鎖定中(點擊解鎖編輯)</button>
+    <button class="btn btn-g btn-s" onclick="openBackupMask()" style="align-self:center">🗄 備份還原</button>
     <span class="conn"><span class="dot" id="connDot"></span><span id="connTx">未連線</span></span>
   </div>
   <div class="navwrap"><nav>
@@ -225,6 +226,25 @@ code{font-family:'Inter',monospace;font-size:12px;background:#EDE8DC;padding:1px
 
 </main>
 
+<!-- 備份還原 modal -->
+<div class="mask" id="backupMask">
+  <div class="modal" style="max-width:460px">
+    <div class="mh"><b>資料備份與還原</b><button class="btn-x" onclick="closeBackupMask()">關閉</button></div>
+    <div class="mb">
+      <div class="f" style="margin-bottom:14px">
+        <label>匯出備份（下載訂單／集運批次／商品成本設定全部資料）</label>
+        <button class="btn" style="margin-top:8px" onclick="exportBackup()">📥 匯出備份</button>
+      </div>
+      <div class="f">
+        <label>匯入還原（會把備份檔內容寫回資料庫，只新增／更新，不會刪除現有資料）</label>
+        <input type="file" id="backupFile" accept="application/json" style="width:100%;margin-top:8px">
+        <button class="btn" style="margin-top:8px" onclick="importBackup()">📤 匯入還原</button>
+      </div>
+      <div id="backupStatus" style="font-size:12px;color:var(--slate);margin-top:12px;white-space:pre-line"></div>
+    </div>
+  </div>
+</div>
+
 <!-- 分配品項 modal -->
 <div class="mask" id="assignMask">
   <div class="modal">
@@ -315,6 +335,66 @@ async function loadAll(){
   renderAll();
 }
 function renderAll(){ renderOverview(); renderOrders(); renderBatches(); renderCosts(); }
+
+function openBackupMask(){ $('backupStatus').textContent=''; $('backupMask').classList.add('on'); }
+function closeBackupMask(){ $('backupMask').classList.remove('on'); }
+
+async function exportBackup(){
+  var statusEl=$('backupStatus');
+  statusEl.textContent='匯出中...';
+  try{
+    var tables=['taobao_orders','taobao_items','taobao_batches','taobao_settings'];
+    var dump={exported_at:new Date().toISOString(),source:'淘寶對帳',tables:{}};
+    for(var i=0;i<tables.length;i++){
+      var res=await db.from(tables[i]).select('*');
+      if(res.error) throw res.error;
+      dump.tables[tables[i]]=res.data;
+    }
+    var blob=new Blob([JSON.stringify(dump,null,2)],{type:'application/json'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url;
+    a.download='淘寶對帳備份_'+new Date().toISOString().slice(0,10)+'.json';
+    document.body.appendChild(a);a.click();a.remove();
+    URL.revokeObjectURL(url);
+    var parts=tables.map(t=>t+' '+dump.tables[t].length+' 筆');
+    statusEl.textContent='匯出完成：'+parts.join('、');
+  }catch(e){
+    console.error(e);
+    statusEl.textContent='匯出失敗：'+(e.message||e);
+  }
+}
+
+async function importBackup(){
+  var fileInput=$('backupFile');
+  var file=fileInput.files[0];
+  var statusEl=$('backupStatus');
+  if(!file){ statusEl.textContent='請先選擇備份檔案'; return; }
+  if(!confirm('確定要匯入還原嗎？會把備份檔內的資料寫回資料庫（新增或更新，不會刪除現有資料）。')) return;
+  statusEl.textContent='還原中...';
+  try{
+    var text=await file.text();
+    var dump=JSON.parse(text);
+    if(!dump.tables) throw new Error('檔案格式不正確，找不到 tables');
+    var pk={taobao_orders:'id',taobao_items:'id',taobao_batches:'id',taobao_settings:'key'};
+    var lines=[];
+    for(var t in pk){
+      var rows=dump.tables[t];
+      if(!rows||!rows.length){ continue; }
+      for(var i=0;i<rows.length;i+=500){
+        var chunk=rows.slice(i,i+500);
+        var res=await db.from(t).upsert(chunk,{onConflict:pk[t]});
+        if(res.error) throw res.error;
+      }
+      lines.push(t+'：還原 '+rows.length+' 筆');
+    }
+    statusEl.textContent=lines.length?lines.join('\n'):'備份檔裡沒有找到相關資料';
+    loadAll();
+  }catch(e){
+    console.error(e);
+    statusEl.textContent='匯入失敗：'+(e.message||e);
+  }
+}
 
 /* ── 成本核心 ── */
 const orderById = id => S.orders.find(o=>o.id===id);
