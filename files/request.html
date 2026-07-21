@@ -223,12 +223,6 @@
         <button class="btn btn-primary" id="btn-submit">送出申請</button>
       </div>
     </div>
-
-    <div class="card">
-      <h3>申請紀錄</h3>
-      <p style="font-size:12px; color:var(--sub); margin-bottom:12px;">目前身份：<b id="my-name-label">—</b>　<a href="#" onclick="changeMyName();return false;" style="color:var(--accent);">切換身份</a></p>
-      <div id="my-requests"><div class="empty">尚無資料</div></div>
-    </div>
   </div>
 
   <!-- 審核與撥款 -->
@@ -304,6 +298,7 @@
   <!-- 申請紀錄 -->
   <div class="panel" id="panel-history">
     <div class="card">
+      <p style="font-size:12px; color:var(--sub); margin-bottom:14px;">目前身份：<b id="my-name-label">—</b>　<a href="#" onclick="changeMyName();return false;" style="color:var(--accent);">切換身份</a></p>
       <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; margin-bottom:18px;">
         <div>
           <label class="form-label">選擇月份</label>
@@ -521,7 +516,7 @@
     localStorage.setItem('phase_my_name', n);
     document.getElementById('my-name-label').textContent = n || '尚未設定';
     document.getElementById('f-applicant').value = n;
-    renderMyRequests();
+    renderHistory();
   };
 
   // ---- 編輯自己的申請（僅限狀態仍是「待審核」時） ----
@@ -652,14 +647,6 @@
     if(!dateStr) return 0;
     var d = new Date(dateStr); var now = new Date();
     return Math.floor((now-d)/(1000*60*60*24));
-  }
-
-  // ---- render: my requests (all, most recent first) ----
-  function renderMyRequests(){
-    var el = document.getElementById('my-requests');
-    if(!requests.length){ el.innerHTML = '<div class="empty">尚無資料</div>'; return; }
-    var sorted = requests.slice().sort(function(a,b){ return new Date(b.created_at)-new Date(a.created_at); });
-    el.innerHTML = sorted.map(function(r){ return reqCardHtml(r, {mine:true}); }).join('');
   }
 
   function statusPill(status){
@@ -977,7 +964,7 @@
       if(res.error) throw res.error;
       requests = res.data || [];
     }catch(e){ console.error('requests load error', e); }
-    renderMyRequests(); renderReview(); renderHistory();
+    renderReview(); renderHistory();
   }
 
   // ---- 申請紀錄（月份查閱 + 匯款資訊查詢） ----
@@ -1006,7 +993,7 @@
     }
     list = list.slice().sort(function(a,b){ return new Date(b.created_at)-new Date(a.created_at); });
     el.innerHTML = list.length
-      ? list.map(function(r){ return reqCardHtml(r, {showBank: r.status==='已撥款'}); }).join('')
+      ? list.map(function(r){ return reqCardHtml(r, {mine:true, showBank: r.status==='已撥款'}); }).join('')
       : '<div class="empty">沒有符合條件的資料</div>';
   }
   document.getElementById('history-month').addEventListener('change', renderHistory);
