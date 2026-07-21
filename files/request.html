@@ -153,6 +153,7 @@
   <div class="tab active" data-panel="submit">提出申請</div>
   <div class="tab" data-panel="review">審核與撥款<span class="tab-badge" id="tab-badge-review"></span></div>
   <div class="tab" data-panel="invoice">發票追蹤</div>
+  <div class="tab" data-panel="history">申請紀錄</div>
 </div>
 
 <div class="main">
@@ -297,6 +298,21 @@
     <div class="card">
       <h3>待收發票（已撥款但發票未到）</h3>
       <div id="list-invoice"><div class="empty">目前沒有待收發票</div></div>
+    </div>
+  </div>
+
+  <!-- 申請紀錄 -->
+  <div class="panel" id="panel-history">
+    <div class="card">
+      <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; margin-bottom:18px;">
+        <div>
+          <label class="form-label">選擇月份</label>
+          <input class="form-input" type="month" id="history-month" style="max-width:170px;">
+        </div>
+        <button class="btn btn-outline" id="btn-history-bank" onclick="toggleHistoryBankMode()">🏦 匯款資訊</button>
+      </div>
+      <h3 id="history-title">申請紀錄</h3>
+      <div id="list-history"><div class="empty">尚無資料</div></div>
     </div>
   </div>
 
@@ -961,8 +977,39 @@
       if(res.error) throw res.error;
       requests = res.data || [];
     }catch(e){ console.error('requests load error', e); }
-    renderMyRequests(); renderReview();
+    renderMyRequests(); renderReview(); renderHistory();
   }
+
+  // ---- 申請紀錄（月份查閱 + 匯款資訊查詢） ----
+  var historyShowPaidOnly = false;
+  function toggleHistoryBankMode(){
+    historyShowPaidOnly = !historyShowPaidOnly;
+    var btn = document.getElementById('btn-history-bank');
+    btn.textContent = historyShowPaidOnly ? '← 返回月份紀錄' : '🏦 匯款資訊';
+    document.getElementById('history-month').disabled = historyShowPaidOnly;
+    renderHistory();
+  }
+  function renderHistory(){
+    var monthInput = document.getElementById('history-month');
+    if(!monthInput) return;
+    if(!monthInput.value) monthInput.value = new Date().toISOString().slice(0,7);
+    var titleEl = document.getElementById('history-title');
+    var el = document.getElementById('list-history');
+    var list;
+    if(historyShowPaidOnly){
+      list = requests.filter(function(r){ return r.status==='已撥款'; });
+      titleEl.textContent = '已完成匯款資料（全部）';
+    }else{
+      var month = monthInput.value;
+      list = requests.filter(function(r){ return (r.created_at||'').slice(0,7)===month; });
+      titleEl.textContent = month+' 申請紀錄';
+    }
+    list = list.slice().sort(function(a,b){ return new Date(b.created_at)-new Date(a.created_at); });
+    el.innerHTML = list.length
+      ? list.map(function(r){ return reqCardHtml(r, {showBank: r.status==='已撥款'}); }).join('')
+      : '<div class="empty">沒有符合條件的資料</div>';
+  }
+  document.getElementById('history-month').addEventListener('change', renderHistory);
 
   function openBackupModal(){ document.getElementById('backup-status').textContent=''; document.getElementById('backup-modal').style.display='flex'; }
   function closeBackupModal(){ document.getElementById('backup-modal').style.display='none'; }
