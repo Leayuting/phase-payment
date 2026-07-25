@@ -1,0 +1,1814 @@
+<!DOCTYPE html>
+<!--
+  PHASE 出勤管理系統 · Supabase 正式版
+  部署前必做：
+    1. 建立 Supabase 專案，於 SQL Editor 執行同目錄的 phase-attendance-schema.sql
+    2. 依 schema.sql 最後的說明建立第一位管理員帳號
+    3. 把下面 <script> 區塊的 SUPABASE_URL / SUPABASE_ANON_KEY 換成你專案的值
+    4. 直接把這份檔案當 index.html 上傳到 GitHub Pages（或任何靜態空間）即可
+-->
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PHASE — 出勤管理系統</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+body{margin:0;}
+.ph-root{font-family:'Noto Sans TC',sans-serif;color:#1A0800;background:#FAF9F7;min-height:100vh;}
+.f-serif{font-family:'Noto Serif TC',serif;}
+.ink{color:#1A0800}.brick{color:#B5402A}
+.hair{border-color:#E4E0DA}
+.tag{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;}
+.t-off{color:#8B857C;border:1px solid #D8D3CB;background:#fff}
+.t-in{color:#2F6B43;background:#E9F1EB}
+.t-out{color:#9A6B1F;background:#F6EDDA}
+.t-done{color:#5A554E;background:#ECEAE6}
+.t-abn{color:#B5402A;background:#F7E7E2}
+.t-leave{color:#9C5050;background:#F6E9E9}
+.t-lpend{color:#9C5050;border:1px dashed #C47878;background:#fff}
+.t-mod{color:#7A5C1E;background:#F3ECD9;font-size:11px}
+.t-seg{color:#5A554E;background:#F0EDE8;font-size:11px}
+.btn{padding:8px 18px;border-radius:8px;font-size:14px;font-weight:500;transition:opacity .15s;cursor:pointer}
+.btn:hover{opacity:.85}
+.btn-ink{background:#1A0800;color:#fff}
+.btn-line{border:1px solid #C9C4BC;color:#1A0800;background:#fff}
+.btn-brick{background:#B5402A;color:#fff}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.card{background:#fff;border:1px solid #E4E0DA;border-radius:14px}
+.chip{padding:5px 14px;border-radius:999px;font-size:13px;cursor:pointer;border:1px solid #D8D3CB;color:#5A554E;background:#fff}
+.chip.on{background:#1A0800;color:#fff;border-color:#1A0800}
+.inp{border:1px solid #C9C4BC;border-radius:8px;padding:8px 12px;font-size:14px;background:#fff;width:100%}
+.inp:focus{outline:2px solid #1A0800;outline-offset:1px}
+.th{font-size:12px;color:#8B857C;font-weight:500;text-align:left;padding:8px 12px;border-bottom:1px solid #E4E0DA;white-space:nowrap}
+.td{font-size:13px;padding:10px 12px;border-bottom:1px solid #F0EDE8;white-space:nowrap;vertical-align:top}
+.navbtn{display:block;width:100%;text-align:left;padding:10px 14px;border-radius:8px;font-size:14px;color:#5A554E}
+.navbtn.on{background:#1A0800;color:#fff}
+.navbtn:hover:not(.on){background:#EFEDE8}
+.dline{font-size:12px;color:#5A554E;line-height:1.9}
+.dline b{font-weight:500;color:#1A0800}
+.statcard{border:1px solid #E4E0DA;border-radius:12px;padding:16px;background:#fff}
+.statnum{font-size:28px;font-weight:600;font-family:'Noto Serif TC',serif}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+  // ==== 換成你自己的 Supabase 專案設定（Project Settings → API） ====
+  window.__SUPABASE_URL__ = "https://afzzfdvybwwattbvmenm.supabase.co";
+  window.__SUPABASE_ANON_KEY__ = "sb_publishable_lrErpKLvui4-KYkZsP_91w_5PohlyTn";
+</script>
+
+<script type="text/plain" id="app-source">
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
+const { createClient } = supabase;
+const sb = createClient(window.__SUPABASE_URL__, window.__SUPABASE_ANON_KEY__);
+// 6 位數字，方便口頭告訴員工、登入後再請他們自行改成好記的密碼
+const genTempPassword = () => String(Math.floor(100000 + Math.random() * 900000));
+// 透過 Edge Function（create-employee-auth）用 Admin API 建立登入帳號，
+// 不會受 signUp() 的 email 流量限制影響，也不需要在前端放 service_role key
+async function signUpEmployee(email, password) {
+  const { data, error } = await sb.functions.invoke("create-employee-auth", { body: { email, password } });
+  console.log("[signUpEmployee] data=", data, "error=", error);
+  if (error) {
+    let msg = error.message || String(error);
+    try {
+      const body = await error.context?.json?.();
+      console.log("[signUpEmployee] error.context body=", body);
+      if (body?.error) msg = body.error;
+    } catch (e2) { console.log("[signUpEmployee] context parse failed", e2); }
+    return { userId: null, error: msg };
+  }
+  if (!data?.userId) return { userId: null, error: data?.error || `未取得使用者 ID（原始回應：${JSON.stringify(data)}）` };
+  return { userId: data.userId, error: null };
+}
+
+/* ---------- 工具 ---------- */
+const pad = (n) => String(n).padStart(2, "0");
+const fmtDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const fmtTime = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const nowStamp = () => { const d = new Date(); return `${fmtDate(d)} ${fmtTime(d)}`; };
+const fmtStamp = (iso) => { if (!iso) return ""; const d = new Date(iso); return `${fmtDate(d)} ${fmtTime(d)}`; };
+const hm = (t) => (t ? String(t).slice(0, 5) : t);
+const today = () => fmtDate(new Date());
+const weekdayNames = ["日", "一", "二", "三", "四", "五", "六"];
+const mins = (t) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+const sessionHours = (sessions) =>
+  (sessions.filter((s) => s.in && s.out).reduce((a, s) => a + (mins(s.out) - mins(s.in)), 0) / 60).toFixed(1);
+const dtOf = (d, t) => new Date(`${d}T${t || "00:00"}:00`);
+const leaveCovers = (lv, ds) => lv.startDate <= ds && ds <= lv.endDate;
+const leaveOverlap = (a, b) =>
+  dtOf(a.startDate, a.startTime) < dtOf(b.endDate, b.endTime) &&
+  dtOf(b.startDate, b.startTime) < dtOf(a.endDate, a.endTime);
+const firstIn = (rec) => rec?.sessions?.[0]?.in ?? null;
+const lastOut = (rec) => {
+  if (!rec || rec.sessions.length === 0) return null;
+  if (rec.sessions.some((s) => !s.out)) return null;
+  return rec.sessions[rec.sessions.length - 1].out;
+};
+const getPosition = () => new Promise((resolve) => {
+  if (!navigator.geolocation) { resolve(null); return; }
+  navigator.geolocation.getCurrentPosition(
+    (pos) => resolve({
+      lat: +pos.coords.latitude.toFixed(5), lng: +pos.coords.longitude.toFixed(5),
+      accuracy: Math.round(pos.coords.accuracy),
+    }),
+    () => resolve(null),
+    { enableHighAccuracy: true, timeout: 8000 }
+  );
+});
+
+/* ---------- Supabase row → 前端物件 對照 ---------- */
+const mapDept = (r) => ({ id: r.id, name: r.name, code: r.code, note: r.note ?? "", status: r.status });
+const mapLeaveType = (r) => ({ id: r.id, name: r.name, code: r.code, description: r.description ?? "", status: r.status });
+const mapEmployee = (r) => ({
+  id: r.id, authUserId: r.auth_user_id, email: r.email ?? "", employeeCode: r.employee_code ?? "", name: r.name,
+  departmentId: r.department_id, department: r.departments?.name ?? "—",
+  role: r.role, active: r.active, failedLogins: r.failed_logins,
+});
+const mapRecord = (r) => ({
+  id: r.id, userId: r.employee_id, date: r.date, sessions: r.sessions || [],
+  lat: r.lat, lng: r.lng, accuracy: r.accuracy, address: r.address, ip: r.ip,
+  modified: r.modified, history: r.history || [],
+});
+const mapOuting = (r) => ({
+  id: r.id, userId: r.employee_id, date: r.date,
+  start: hm(r.start_time), expectedEnd: hm(r.expected_end), end: hm(r.end_time),
+  destination: r.destination, purpose: r.purpose,
+  returnLat: r.return_lat, returnLng: r.return_lng, returnAccuracy: r.return_accuracy, returnAddress: r.return_address,
+  returnedAt: r.returned_at,
+});
+const mapLeave = (r) => ({
+  id: r.id, userId: r.employee_id, typeId: r.leave_type_id, reason: r.reason,
+  startDate: r.start_date, startTime: hm(r.start_time), endDate: r.end_date, endTime: hm(r.end_time),
+  hours: r.hours, note: r.note ?? "", attachments: r.attachments || [],
+  status: r.status, appliedAt: fmtStamp(r.applied_at),
+  approvedBy: r.approver ? { name: r.approver.name, email: r.approver.email } : null,
+  approvedAt: fmtStamp(r.approved_at), approvalNote: r.approval_note,
+  rejectedBy: r.rejecter ? { name: r.rejecter.name, email: r.rejecter.email } : null,
+  rejectedAt: fmtStamp(r.rejected_at), rejectionReason: r.rejection_reason,
+  withdrawnAt: fmtStamp(r.withdrawn_at),
+});
+const mapRequest = (r) => ({
+  id: r.id, userId: r.employee_id, recordDate: r.record_date, sessionIdx: r.session_idx,
+  field: r.field, value: r.value, reason: r.reason, status: r.status,
+});
+const mapAudit = (r) => ({ time: fmtStamp(r.created_at), actor: r.actor_label, action: r.action, target: r.target, detail: r.detail ?? "" });
+const mapSnapshot = (r) => ({
+  date: r.snapshot_date, user_id: r.employee_id, employee_name: r.employee_name, department: r.department,
+  sessions: r.sessions || [], session_count: r.session_count,
+  first_clock_in: r.first_clock_in, last_clock_out: r.last_clock_out,
+  outings: r.outings || [], leaves: r.leaves || [], has_been_modified: r.modified,
+});
+
+/* ---------- 狀態推導（與原設計一致） ----------
+   優先順序：進行中的班次 > 請假 > 已下班 > 尚未上班 */
+function deriveStatus(rec, dayOutings, dayLeaves, dateStr) {
+  const isPast = dateStr < today();
+  const isToday = dateStr === today();
+  const approved = (dayLeaves || []).filter((l) => l.status === "approved");
+  const open = rec?.sessions?.find((s) => s.in && !s.out);
+  if (open) {
+    if (isPast) return { key: "abn", label: "出勤異常" };
+    const activeOut = (dayOutings || []).find((o) => o.start && !o.end);
+    if (activeOut) return { key: "out", label: "外出中" };
+    return { key: "in", label: "已上班" };
+  }
+  if (isToday && approved.some((l) => {
+    const now = new Date();
+    return dtOf(l.startDate, l.startTime) <= now && now <= dtOf(l.endDate, l.endTime);
+  })) return { key: "leave", label: "請假" };
+  if (rec && rec.sessions.length > 0) return { key: "done", label: "已下班" };
+  if (approved.length > 0) return { key: "leave", label: "請假" };
+  return { key: "off", label: "尚未上班" };
+}
+const buildViewRow = (r) => {
+  const s = mapSnapshot(r);
+  return { ...s, attendance_status: deriveStatus({ sessions: s.sessions }, s.outings, s.leaves, s.date) };
+};
+
+/* ---------- 附件（Supabase Storage，bucket 為 private，需簽章網址才能存取） ---------- */
+async function uploadAttachments(files, authUserId, leaveId) {
+  const out = [];
+  for (const file of files) {
+    const path = `${authUserId}/${leaveId}/${Date.now()}-${file.name}`;
+    const { error } = await sb.storage.from("leave-attachments").upload(path, file);
+    if (error) { console.error("upload failed", error); continue; }
+    out.push({ name: file.name, size: file.size, type: file.type, storage_path: path, uploaded_at: nowStamp() });
+  }
+  return out;
+}
+function AttachmentThumb({ att }) {
+  const [url, setUrl] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    sb.storage.from("leave-attachments").createSignedUrl(att.storage_path, 3600).then(({ data }) => {
+      if (alive && data) setUrl(data.signedUrl);
+    });
+    return () => { alive = false; };
+  }, [att.storage_path]);
+  if (!url) return <span className="tag t-seg">{att.name}（載入中…）</span>;
+  return att.type?.startsWith("image/")
+    ? <a href={url} download={att.name} title={att.name}>
+        <img src={url} alt={att.name} style={{ height: 56, borderRadius: 6, border: "1px solid #E4E0DA" }} />
+      </a>
+    : <a href={url} download={att.name} className="tag t-seg">{att.name}</a>;
+}
+
+/* ---------- 小元件 ---------- */
+const Tag = ({ k, children }) => <span className={`tag t-${k}`}>{children}</span>;
+const StatusTag = ({ st }) => <Tag k={st.key}>{st.label}</Tag>;
+const LV_STATUS = {
+  pending: ["lpend", "待審核"], approved: ["in", "已批准"],
+  rejected: ["abn", "已駁回"], withdrawn: ["done", "已撤回"],
+};
+const LvTag = ({ s }) => <Tag k={LV_STATUS[s][0]}>{LV_STATUS[s][1]}</Tag>;
+
+function Modal({ title, onClose, children, wide }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(26,8,0,.45)" }}>
+      <div className={`card w-full ${wide ? "max-w-3xl" : "max-w-md"} p-6 max-h-full overflow-y-auto`}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="f-serif text-lg font-semibold">{title}</h3>
+          <button onClick={onClose} className="text-sm" style={{ color: "#8B857C" }}>關閉 ✕</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- 登入（Supabase Auth，帳號為 email） ---------- */
+function Login() {
+  const [code, setCode] = useState("");
+  const [pw, setPw] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const resolveEmail = async (c) => {
+    const { data, error } = await sb.rpc("code_to_email", { p_code: c });
+    if (error || !data) return null;
+    return data;
+  };
+  const submit = async () => {
+    if (!code.trim() || !pw) return;
+    setErr(""); setBusy(true);
+    const email = await resolveEmail(code.trim());
+    if (!email) {
+      sb.rpc("record_failed_login", { p_email: `code:${code.trim()}` });
+      setBusy(false); setErr("帳號或密碼不正確"); return;
+    }
+    const { error } = await sb.auth.signInWithPassword({ email, password: pw });
+    setBusy(false);
+    if (error) {
+      sb.rpc("record_failed_login", { p_email: email });
+      setErr("帳號或密碼不正確");
+    }
+  };
+  const forgot = () => {
+    setErr("忘記密碼請洽管理員，由管理後台「員工管理」按「重設密碼」處理。");
+  };
+  return (
+    <div className="ph-root flex items-center justify-center min-h-screen p-6">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-10">
+          <div className="f-serif text-3xl font-bold tracking-widest">PHASE</div>
+          <div className="text-xs tracking-widest mt-1" style={{ color: "#8B857C", letterSpacing: ".3em" }}>ATTENDANCE</div>
+          <div className="f-serif mt-6 text-lg">出勤管理系統</div>
+        </div>
+        <div className="card p-6 space-y-4">
+          <div>
+            <label className="text-xs" style={{ color: "#8B857C" }}>員工代碼</label>
+            <input className="inp mt-1" value={code} onChange={(e) => setCode(e.target.value)} placeholder="例：bozhe" />
+          </div>
+          <div>
+            <label className="text-xs" style={{ color: "#8B857C" }}>密碼</label>
+            <input className="inp mt-1" type="password" value={pw} onChange={(e) => setPw(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submit()} placeholder="••••••" />
+          </div>
+          {err && <div className="text-sm brick">{err}</div>}
+          <button className="btn btn-ink w-full" disabled={busy} onClick={submit}>{busy ? "登入中…" : "登入"}</button>
+          <button className="text-xs underline" style={{ color: "#8B857C" }} onClick={forgot}>忘記密碼</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- 個人打卡卡片 ---------- */
+function ClockCard({ me, myRec, myOutings, myLeavesToday, now, onClockIn, onClockOut, onOutStart, onOutEnd }) {
+  const st = deriveStatus(myRec, myOutings, myLeavesToday, today());
+  const open = myRec?.sessions?.find((s) => !s.out);
+  const activeOut = myOutings.find((o) => !o.end);
+  const [showOut, setShowOut] = useState(false);
+  const [dest, setDest] = useState("");
+  const [purpose, setPurpose] = useState("");
+  const [expEnd, setExpEnd] = useState("");
+  const segCount = myRec?.sessions?.length ?? 0;
+  return (
+    <div className="card p-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <div className="text-xs" style={{ color: "#8B857C" }}>{today()}（{weekdayNames[now.getDay()]}）· {me.department}</div>
+          <div className="f-serif font-semibold" style={{ fontSize: 44, lineHeight: 1.2 }}>
+            {pad(now.getHours())}:{pad(now.getMinutes())}<span className="text-xl" style={{ color: "#B3ADA4" }}>:{pad(now.getSeconds())}</span>
+          </div>
+        </div>
+        <div className="text-right space-y-1">
+          <StatusTag st={st} />
+          {segCount > 1 && <div><span className="tag t-seg">今日第 {segCount} 段</span></div>}
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-3 mt-5">
+        <button className="btn btn-ink" disabled={!!open} onClick={onClockIn}>
+          {segCount > 0 && !open ? "再次上班打卡" : "上班打卡"}
+        </button>
+        <button className="btn btn-line" disabled={!open || !!activeOut} onClick={() => setShowOut(true)}>外出登記</button>
+        {activeOut && <button className="btn btn-brick" onClick={onOutEnd}>返回</button>}
+        <button className="btn btn-line" disabled={!open || !!activeOut} onClick={onClockOut}>下班打卡</button>
+      </div>
+      <div className="mt-4 dline">
+        {myRec?.sessions?.map((s, i) => (
+          <div key={i}><b>第 {i + 1} 段</b>　上班 {s.in}{s.out ? `　下班 ${s.out}` : "　（進行中）"}</div>
+        ))}
+        {myOutings.map((o, i) => (
+          <div key={i}>
+            <b>外出</b>　{o.start} 出發
+            {o.expectedEnd && `　預計 ${o.expectedEnd} 返回`}
+            {o.end ? `　實際 ${o.end} 返回` : "　（外出中）"}
+            　{o.destination} · {o.purpose}
+          </div>
+        ))}
+        {segCount === 0 && !myLeavesToday.length && "今日尚未打卡。打卡將記錄伺服器時間與 GPS 定位。下班後如需再次上班，可重新打卡，各段紀錄皆完整保留。"}
+        {segCount === 0 && myLeavesToday.some((l) => l.status === "approved") && "今日為請假日。"}
+      </div>
+      {showOut && (
+        <Modal title="外出登記" onClose={() => setShowOut(false)}>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs" style={{ color: "#8B857C" }}>外出地點</label>
+              <input className="inp mt-1" value={dest} onChange={(e) => setDest(e.target.value)} placeholder="例：展晟印刷、烘豆場" />
+            </div>
+            <div>
+              <label className="text-xs" style={{ color: "#8B857C" }}>外出事由</label>
+              <input className="inp mt-1" value={purpose} onChange={(e) => setPurpose(e.target.value)} placeholder="例：取豆卡、送批發豆" />
+            </div>
+            <div>
+              <label className="text-xs" style={{ color: "#8B857C" }}>預計返回時間（選填）</label>
+              <input className="inp mt-1" type="time" value={expEnd} onChange={(e) => setExpEnd(e.target.value)} />
+            </div>
+            <div className="text-xs" style={{ color: "#8B857C" }}>外出地點與事由為公開資訊，全體同仁皆可查看。返回時系統將記錄實際返回時間與 GPS 定位。</div>
+            <button className="btn btn-ink w-full" disabled={!dest || !purpose}
+              onClick={() => { onOutStart(dest, purpose, expEnd || null); setShowOut(false); setDest(""); setPurpose(""); setExpEnd(""); }}>
+              開始外出
+            </button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ---------- 全員出勤狀態 ---------- */
+function TeamBoard({ view, lastSync, syncStatus }) {
+  const [filter, setFilter] = useState("all");
+  const [dept, setDept] = useState("all");
+  const depts = [...new Set(view.map((r) => r.department))];
+  const chips = [
+    ["all", "全部"], ["in", "已上班"], ["off", "尚未上班"], ["out", "外出中"],
+    ["done", "已下班"], ["leave", "請假"], ["abn", "異常"],
+  ];
+  const rows = view.filter((r) => {
+    if (dept !== "all" && r.department !== dept) return false;
+    if (filter === "all") return true;
+    return r.attendance_status.key === filter;
+  });
+  const counts = useMemo(() => {
+    const c = { in: 0, off: 0, out: 0, done: 0, abn: 0, leave: 0 };
+    view.forEach((r) => { c[r.attendance_status.key] = (c[r.attendance_status.key] ?? 0) + 1; });
+    return c;
+  }, [view]);
+  return (
+    <div className="card p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div>
+          <h2 className="f-serif text-lg font-semibold">全員出勤狀態</h2>
+          <div className="text-xs mt-1" style={{ color: "#B3ADA4" }}>
+            {syncStatus === "SUBSCRIBED" ? "● 即時同步中" : "○ 連線中，資料可能非最新"} · 最後更新 {lastSync}
+          </div>
+        </div>
+        <div className="text-xs" style={{ color: "#8B857C" }}>
+          在班 {counts.in}　外出 {counts.out}　未上班 {counts.off}　已下班 {counts.done}　請假 {counts.leave}　異常 {counts.abn}
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2 mb-4">
+        {chips.map(([k, label]) => (
+          <button key={k} className={`chip ${filter === k ? "on" : ""}`} onClick={() => setFilter(k)}>{label}</button>
+        ))}
+        <select className="inp" style={{ width: "auto", padding: "5px 10px", fontSize: 13 }} value={dept} onChange={(e) => setDept(e.target.value)}>
+          <option value="all">所有單位</option>
+          {depts.map((d) => <option key={d}>{d}</option>)}
+        </select>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead><tr>
+            <th className="th">員工</th><th className="th">單位</th><th className="th">狀態</th>
+            <th className="th">上班</th><th className="th">下班</th>
+            <th className="th">外出／請假</th><th className="th">備註</th>
+          </tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.user_id}>
+                <td className="td font-medium">{r.employee_name}</td>
+                <td className="td" style={{ color: "#8B857C" }}>{r.department}</td>
+                <td className="td"><StatusTag st={r.attendance_status} /></td>
+                <td className="td">
+                  {r.first_clock_in ?? "—"}
+                  {r.session_count > 1 && <span className="tag t-seg ml-1">{r.session_count} 段</span>}
+                </td>
+                <td className="td">{r.last_clock_out ?? "—"}</td>
+                <td className="td">
+                  {r.outings.length === 0 && r.leaves.length === 0 && "—"}
+                  {r.outings.map((o, i) => (
+                    <div key={`o${i}`}>外出 {o.start}{o.end ? `–${o.end}` : " 起"} · {o.destination} · {o.purpose}</div>
+                  ))}
+                  {r.leaves.map((l, i) => (
+                    <div key={`l${i}`}>
+                      {l.type} {l.startTime}–{l.endTime}
+                      {l.startDate !== l.endDate && `（${l.startDate}～${l.endDate}）`}
+                    </div>
+                  ))}
+                </td>
+                <td className="td">{r.has_been_modified && <span className="tag t-mod">已異動</span>}</td>
+              </tr>
+            ))}
+            {rows.length === 0 && <tr><td className="td" colSpan={7} style={{ color: "#B3ADA4" }}>沒有符合條件的員工</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- 行事曆（跨同仁資料一律走 team_snapshot RPC，事由僅本人／管理員可見時才從本地 leaves 補上） ---------- */
+function CalendarView({ me, users, leaves, leaveTypes }) {
+  const nowD = new Date();
+  const [ym, setYm] = useState({ y: nowD.getFullYear(), m: nowD.getMonth() });
+  const [mode, setMode] = useState("person");
+  const staff = users.filter((u) => u.active && u.role !== "admin");
+  const [pick, setPick] = useState(staff[0]?.id);
+  const [openDay, setOpenDay] = useState(null);
+  const [monthRows, setMonthRows] = useState([]);
+
+  const first = new Date(ym.y, ym.m, 1);
+  const daysInMonth = new Date(ym.y, ym.m + 1, 0).getDate();
+  const lead = first.getDay();
+  const cells = [...Array(lead).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
+  const dstr = (d) => `${ym.y}-${pad(ym.m + 1)}-${pad(d)}`;
+  const move = (k) => setYm(({ y, m }) => { const d = new Date(y, m + k, 1); return { y: d.getFullYear(), m: d.getMonth() }; });
+
+  useEffect(() => {
+    const start = dstr(1), end = dstr(daysInMonth);
+    const empFilter = mode === "person" ? pick : null;
+    sb.rpc("team_snapshot", { p_start: start, p_end: end, p_employee_id: empFilter || null }).then(({ data, error }) => {
+      if (!error) setMonthRows((data || []).map(buildViewRow));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ym.y, ym.m, mode, pick]);
+
+  const rowsFor = (uid, ds) => monthRows.filter((r) => r.user_id === uid && r.date === ds);
+  const tName = (id) => leaveTypes.find((t) => t.id === id)?.name ?? "—";
+  const canSeeReason = (uid) => me.role === "admin" || me.id === uid;
+  const reasonFor = (leaveSnapId) => leaves.find((l) => l.id === leaveSnapId)?.reason ?? null;
+
+  return (
+    <div className="card p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <h2 className="f-serif text-lg font-semibold">出勤行事曆</h2>
+        <div className="flex gap-2">
+          <button className={`chip ${mode === "person" ? "on" : ""}`} onClick={() => setMode("person")}>個別員工</button>
+          <button className={`chip ${mode === "all" ? "on" : ""}`} onClick={() => setMode("all")}>全員總覽</button>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <button className="btn btn-line" onClick={() => move(-1)}>‹</button>
+        <div className="f-serif font-semibold">{ym.y} 年 {ym.m + 1} 月</div>
+        <button className="btn btn-line" onClick={() => move(1)}>›</button>
+        {mode === "person" && (
+          <select className="inp" style={{ width: "auto", padding: "6px 10px", fontSize: 13 }} value={pick} onChange={(e) => setPick(e.target.value)}>
+            {staff.map((u) => <option key={u.id} value={u.id}>{u.name}（{u.department}）</option>)}
+          </select>
+        )}
+      </div>
+      <div className="grid grid-cols-7 gap-1 text-center text-xs mb-1" style={{ color: "#8B857C" }}>
+        {weekdayNames.map((w) => <div key={w} className="py-1">{w}</div>)}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((d, i) => {
+          if (!d) return <div key={i} />;
+          const ds = dstr(d);
+          const isFutureNoLeave = ds > today();
+          if (mode === "person") {
+            const row = rowsFor(pick, ds)[0];
+            const ls = row?.leaves ?? [];
+            const st = row?.attendance_status ?? { key: "off", label: "尚未上班" };
+            const showable = !isFutureNoLeave || ls.length > 0;
+            return (
+              <button key={i} onClick={() => showable && setOpenDay(ds)}
+                className="text-left rounded-lg p-2 border hair bg-white hover:opacity-80" style={{ minHeight: 70, opacity: showable ? 1 : 0.4 }}>
+                <div className="text-xs font-medium">{d}</div>
+                {showable && (
+                  <div className="mt-1 space-y-1">
+                    {isFutureNoLeave
+                      ? ls.map((l, j) => <Tag key={j} k="leave">{l.type}</Tag>)
+                      : <StatusTag st={st} />}
+                    {row?.first_clock_in && (
+                      <div className="text-xs" style={{ color: "#8B857C" }}>
+                        {row.first_clock_in}–{row.last_clock_out ?? "…"}{row.session_count > 1 ? ` · ${row.session_count}段` : ""}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </button>
+            );
+          }
+          const stats = { in: 0, off: 0, out: 0, done: 0, abn: 0, leave: 0 };
+          staff.forEach((u) => {
+            const row = rowsFor(u.id, ds)[0];
+            const st = row?.attendance_status ?? { key: "off" };
+            stats[st.key] = (stats[st.key] ?? 0) + 1;
+          });
+          const showable = !isFutureNoLeave || stats.leave > 0;
+          return (
+            <button key={i} onClick={() => showable && setOpenDay(ds)}
+              className="text-left rounded-lg p-2 border hair bg-white hover:opacity-80" style={{ minHeight: 70, opacity: showable ? 1 : 0.4 }}>
+              <div className="text-xs font-medium">{d}</div>
+              {showable && (
+                <div className="mt-1 text-xs leading-5" style={{ color: "#5A554E" }}>
+                  {!isFutureNoLeave && <>班 {stats.in + stats.done} · 外 {stats.out}</>}
+                  {stats.leave > 0 && <div style={{ color: "#9C5050" }}>假 {stats.leave}</div>}
+                  {stats.abn > 0 && <div className="brick">異常 {stats.abn}</div>}
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {openDay && (
+        <Modal title={`${openDay} 出勤明細`} wide onClose={() => setOpenDay(null)}>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead><tr>
+                <th className="th">員工</th><th className="th">狀態</th><th className="th">上下班明細</th>
+                <th className="th">時數</th><th className="th">外出明細</th><th className="th">請假</th><th className="th">備註</th>
+              </tr></thead>
+              <tbody>
+                {(mode === "person" ? staff.filter((u) => u.id === pick) : staff).map((u) => {
+                  const row = rowsFor(u.id, openDay)[0];
+                  const st = row?.attendance_status ?? { key: "off", label: "尚未上班" };
+                  const sessions = row?.sessions ?? [];
+                  const os = row?.outings ?? [];
+                  const ls = row?.leaves ?? [];
+                  return (
+                    <tr key={u.id}>
+                      <td className="td font-medium">{u.name}</td>
+                      <td className="td"><StatusTag st={st} /></td>
+                      <td className="td">
+                        {sessions.length === 0 && "—"}
+                        {sessions.map((s, i) => <div key={i}>第{i + 1}段　{s.in}–{s.out ?? "…"}</div>)}
+                      </td>
+                      <td className="td">{sessions.length ? sessionHours(sessions) : "—"}</td>
+                      <td className="td">
+                        {os.length === 0 && "—"}
+                        {os.map((o, i) => <div key={i}>{o.start}–{o.end ?? "…"} · {o.destination} · {o.purpose}</div>)}
+                      </td>
+                      <td className="td">
+                        {ls.length === 0 && "—"}
+                        {ls.map((l, i) => (
+                          <div key={i}>
+                            {l.type} {l.startDate === l.endDate ? "" : `${l.startDate}～${l.endDate} `}{l.startTime}–{l.endTime}
+                            <div className="text-xs" style={{ color: "#8B857C" }}>
+                              已批准 · 核准：{l.approvedByName ?? "—"}
+                              {canSeeReason(u.id) && reasonFor(l.id) && ` · 事由：${reasonFor(l.id)}`}
+                            </div>
+                          </div>
+                        ))}
+                      </td>
+                      <td className="td">{row?.has_been_modified && <span className="tag t-mod">已異動</span>}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="text-xs mt-3" style={{ color: "#B3ADA4" }}>請假事由僅限本人與管理員查看，其他同仁僅顯示假別與時段。</div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ---------- 請假申請（員工） ---------- */
+function LeavePage({ me, leaves, leaveTypes, onApply, onWithdraw, onAddAttachment }) {
+  const mine = leaves.filter((l) => l.userId === me.id).sort((a, b) => b.appliedAt.localeCompare(a.appliedAt));
+  const activeTypes = leaveTypes.filter((t) => t.status === "active");
+  const [open, setOpen] = useState(false);
+  const empty = { typeId: activeTypes[0]?.id ?? "", reason: "", startDate: today(), startTime: "09:00", endDate: today(), endTime: "18:00", hours: "8", note: "", attachments: [] };
+  const [f, setF] = useState(empty);
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const tName = (id) => leaveTypes.find((t) => t.id === id)?.name ?? "—";
+
+  const recalc = (nf) => {
+    const s = dtOf(nf.startDate, nf.startTime), e = dtOf(nf.endDate, nf.endTime);
+    if (e > s) nf.hours = ((e - s) / 3600000).toFixed(1).replace(/\.0$/, "");
+    return nf;
+  };
+  const set = (k, v) => setF((prev) => {
+    const nf = { ...prev, [k]: v };
+    return ["startDate", "startTime", "endDate", "endTime"].includes(k) ? recalc(nf) : nf;
+  });
+  const addFiles = (fileList) =>
+    setF((prev) => ({ ...prev, attachments: [...prev.attachments, ...Array.from(fileList)] }));
+
+  const submit = async () => {
+    if (!f.typeId || !f.reason.trim() || !f.startDate || !f.startTime || !f.endDate || !f.endTime) {
+      setErr("假別、事由、起訖日期與時間皆為必填"); return;
+    }
+    if (dtOf(f.endDate, f.endTime) <= dtOf(f.startDate, f.startTime)) {
+      setErr("結束時間不得早於開始時間"); return;
+    }
+    const clash = mine.some((l) => ["pending", "approved"].includes(l.status) && leaveOverlap(l, f));
+    if (clash) { setErr("請假期間與已提出或已批准的請假重疊"); return; }
+    setBusy(true);
+    await onApply({ ...f, hours: Number(f.hours) || 0 });
+    setBusy(false);
+    setOpen(false); setF(empty); setErr("");
+  };
+
+  return (
+    <div className="card p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="f-serif text-lg font-semibold">請假申請</h2>
+        <button className="btn btn-ink" onClick={() => { setF(empty); setErr(""); setOpen(true); }}>新增請假申請</button>
+      </div>
+      <div className="space-y-3">
+        {mine.length === 0 && <div className="text-sm" style={{ color: "#B3ADA4" }}>尚無請假紀錄。</div>}
+        {mine.map((l) => (
+          <div key={l.id} className="border hair rounded-lg p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="font-medium">{tName(l.typeId)}</span>
+                <span>{l.startDate} {l.startTime} ～ {l.endDate} {l.endTime}</span>
+                <span className="text-xs" style={{ color: "#8B857C" }}>{l.hours} 小時</span>
+                <LvTag s={l.status} />
+              </div>
+              <div className="flex items-center gap-3">
+                {["pending", "approved"].includes(l.status) && (
+                  <label className="text-xs underline cursor-pointer" style={{ color: "#8B857C" }}>
+                    上傳證明文件
+                    <input type="file" multiple accept="image/*,.pdf" className="hidden"
+                      onChange={(e) => { onAddAttachment(l.id, Array.from(e.target.files)); e.target.value = ""; }} />
+                  </label>
+                )}
+                {l.status === "pending" && (
+                  <button className="text-xs underline" style={{ color: "#B5402A" }} onClick={() => onWithdraw(l)}>撤回申請</button>
+                )}
+              </div>
+            </div>
+            <div className="dline mt-2">
+              <div><b>事由</b>　{l.reason}{l.note && `　備註：${l.note}`}</div>
+              {l.attachments?.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 mt-1">
+                  <b>證明文件</b>
+                  {l.attachments.map((a, i) => <AttachmentThumb key={i} att={a} />)}
+                </div>
+              )}
+              <div style={{ color: "#B3ADA4" }}>申請時間 {l.appliedAt}</div>
+              {l.status === "approved" && (
+                <div><b>核准管理員</b>　{l.approvedBy?.name}（{l.approvedBy?.email}）　{l.approvedAt}
+                  {l.approvalNote && `　審核備註：${l.approvalNote}`}</div>
+              )}
+              {l.status === "rejected" && (
+                <div className="brick"><b className="brick">駁回</b>　{l.rejectedBy?.name}（{l.rejectedBy?.email}）　{l.rejectedAt}　原因：{l.rejectionReason}</div>
+              )}
+              {l.status === "withdrawn" && <div style={{ color: "#8B857C" }}>已於 {l.withdrawnAt} 撤回</div>}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="text-xs mt-4" style={{ color: "#B3ADA4" }}>
+        送出後不可直接修改申請內容；管理員審核前可撤回後重新提出。待審核與已核准的請假均可補上傳證明文件。經批准的請假將顯示於全員出勤總覽與行事曆（其他同仁僅能看到假別與時段）；待審核申請不會出現在公開畫面。請假事由與證明文件僅限本人與管理員查看。
+      </div>
+
+      {open && (
+        <Modal title="新增請假申請" onClose={() => setOpen(false)}>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs" style={{ color: "#8B857C" }}>假別 *</label>
+              <select className="inp mt-1" value={f.typeId} onChange={(e) => set("typeId", e.target.value)}>
+                {activeTypes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs" style={{ color: "#8B857C" }}>請假事由 *（僅本人與管理員可見）</label>
+              <input className="inp mt-1" value={f.reason} onChange={(e) => set("reason", e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs" style={{ color: "#8B857C" }}>開始日期 *</label>
+                <input className="inp mt-1" type="date" value={f.startDate} onChange={(e) => set("startDate", e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs" style={{ color: "#8B857C" }}>開始時間 *</label>
+                <input className="inp mt-1" type="time" value={f.startTime} onChange={(e) => set("startTime", e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs" style={{ color: "#8B857C" }}>結束日期 *</label>
+                <input className="inp mt-1" type="date" value={f.endDate} onChange={(e) => set("endDate", e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs" style={{ color: "#8B857C" }}>結束時間 *</label>
+                <input className="inp mt-1" type="time" value={f.endTime} onChange={(e) => set("endTime", e.target.value)} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs" style={{ color: "#8B857C" }}>請假時數（自動計算，可調整）</label>
+                <input className="inp mt-1" value={f.hours} onChange={(e) => set("hours", e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs" style={{ color: "#8B857C" }}>備註</label>
+                <input className="inp mt-1" value={f.note} onChange={(e) => set("note", e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs" style={{ color: "#8B857C" }}>證明文件（選填，可多檔：病假證明、婚喪喜慶證明等）</label>
+              <input className="inp mt-1" type="file" multiple accept="image/*,.pdf"
+                onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
+              {f.attachments.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {f.attachments.map((a, i) => (
+                    <div key={i} className="flex items-center justify-between text-xs border hair rounded-lg px-3 py-2">
+                      <span>{a.name}（{Math.max(1, Math.round(a.size / 1024))} KB）</span>
+                      <button className="underline" style={{ color: "#B5402A" }}
+                        onClick={() => setF((prev) => ({ ...prev, attachments: prev.attachments.filter((_, j) => j !== i) }))}>移除</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="text-xs mt-1" style={{ color: "#B3ADA4" }}>證明文件僅本人與管理員可查看。</div>
+            </div>
+            {err && <div className="text-sm brick">{err}</div>}
+            <button className="btn btn-ink w-full" disabled={busy} onClick={submit}>{busy ? "送出中…" : "送出申請"}</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ---------- 我的出勤（逐段明細） ---------- */
+function MyAttendance({ me, records, outings, onCorrection, onChangePw }) {
+  const mine = records.filter((r) => r.userId === me.id).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 21);
+  const [corr, setCorr] = useState(null);
+  const [segIdx, setSegIdx] = useState(0);
+  const [field, setField] = useState("out");
+  const [val, setVal] = useState("");
+  const [reason, setReason] = useState("");
+  const [pwOpen, setPwOpen] = useState(false);
+  const [npw, setNpw] = useState("");
+  return (
+    <div className="card p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="f-serif text-lg font-semibold">我的出勤紀錄</h2>
+        <button className="btn btn-line" onClick={() => setPwOpen(true)}>修改密碼</button>
+      </div>
+      <div className="space-y-3">
+        {mine.map((r) => {
+          const os = outings.filter((o) => o.userId === me.id && o.date === r.date);
+          const st = deriveStatus(r, os, [], r.date);
+          return (
+            <div key={r.id} className="border hair rounded-lg p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-medium">{r.date}</span>
+                  <span className="text-xs" style={{ color: "#B3ADA4" }}>（{weekdayNames[new Date(r.date).getDay()]}）</span>
+                  <StatusTag st={st} />
+                  {r.modified && <span className="tag t-mod">已異動</span>}
+                  {r.sessions.length > 0 && <span className="text-xs" style={{ color: "#8B857C" }}>合計 {sessionHours(r.sessions)} 小時</span>}
+                </div>
+                {r.sessions.length > 0 && (
+                  <button className="text-xs underline" style={{ color: "#8B857C" }}
+                    onClick={() => { setCorr(r); setSegIdx(0); setField("out"); setVal(""); setReason(""); }}>
+                    申請更正
+                  </button>
+                )}
+              </div>
+              <div className="dline mt-2">
+                {r.sessions.map((s, i) => (
+                  <div key={`s${i}`}>
+                    <b>第 {i + 1} 段</b>　上班打卡 {s.in}　{s.out ? `下班打卡 ${s.out}` : "（尚未下班）"}
+                    {s.in && s.out && <span style={{ color: "#B3ADA4" }}>　{((mins(s.out) - mins(s.in)) / 60).toFixed(1)}h</span>}
+                  </div>
+                ))}
+                {os.map((o, i) => (
+                  <div key={`o${i}`}>
+                    <b>外出</b>　{o.start} 出發
+                    {o.expectedEnd && `　預計 ${o.expectedEnd}`}
+                    {o.end ? `　實際 ${o.end} 返回（${o.returnAddress ?? "—"}）` : "　（外出中）"}
+                    　{o.destination} · {o.purpose}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="text-xs mt-4" style={{ color: "#B3ADA4" }}>
+        原始打卡時間不可自行修改。如有錯漏，請提出更正申請，由管理員審核後補登，並保留完整異動紀錄。
+      </div>
+      {corr && (
+        <Modal title={`更正申請 · ${corr.date}`} onClose={() => setCorr(null)}>
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs" style={{ color: "#8B857C" }}>更正段次</label>
+              <select className="inp mt-1" value={segIdx} onChange={(e) => setSegIdx(Number(e.target.value))}>
+                {corr.sessions.map((s, i) => (
+                  <option key={i} value={i}>第 {i + 1} 段（{s.in}–{s.out ?? "…"}）</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs" style={{ color: "#8B857C" }}>更正欄位</label>
+              <select className="inp mt-1" value={field} onChange={(e) => setField(e.target.value)}>
+                <option value="in">上班時間</option>
+                <option value="out">下班時間</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs" style={{ color: "#8B857C" }}>正確時間（HH:MM）</label>
+              <input className="inp mt-1" value={val} onChange={(e) => setVal(e.target.value)} placeholder="18:00" />
+            </div>
+            <div>
+              <label className="text-xs" style={{ color: "#8B857C" }}>申請原因</label>
+              <input className="inp mt-1" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="例：系統斷線未成功打卡" />
+            </div>
+            <button className="btn btn-ink w-full" disabled={!/^\d{2}:\d{2}$/.test(val) || !reason}
+              onClick={() => { onCorrection(corr, segIdx, field, val, reason); setCorr(null); }}>
+              送出申請
+            </button>
+          </div>
+        </Modal>
+      )}
+      {pwOpen && (
+        <Modal title="修改密碼" onClose={() => setPwOpen(false)}>
+          <div className="space-y-3">
+            <input className="inp" type="password" value={npw} onChange={(e) => setNpw(e.target.value)} placeholder="新密碼（至少 6 碼）" />
+            <button className="btn btn-ink w-full" disabled={npw.length < 6}
+              onClick={() => { onChangePw(npw); setNpw(""); setPwOpen(false); }}>確認修改</button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ---------- 管理後台 ---------- */
+function AdminPanel({ me, users, departments, records, outings, leaves, leaveTypes, requests, audit, actions }) {
+  const [tab, setTab] = useState("dash");
+  const staff = users.filter((u) => u.role !== "admin");
+  const ds = today();
+  const pendingLeaves = leaves.filter((l) => l.status === "pending");
+  const pendingCorr = requests.filter((r) => r.status === "pending");
+  const tName = (id) => leaveTypes.find((t) => t.id === id)?.name ?? "—";
+  const uName = (id) => users.find((u) => u.id === id)?.name ?? "—";
+  const uDept = (id) => users.find((u) => u.id === id)?.department ?? "—";
+  const hasAnyRecord = (uid) =>
+    records.some((r) => r.userId === uid) || outings.some((o) => o.userId === uid) ||
+    leaves.some((l) => l.userId === uid) || requests.some((q) => q.userId === uid);
+
+  const [reviewLv, setReviewLv] = useState(null);
+  const [reviewMode, setReviewMode] = useState("approve");
+  const [reviewNote, setReviewNote] = useState("");
+  const [staffModal, setStaffModal] = useState(null);
+  const [deptModal, setDeptModal] = useState(null);
+  const [ltModal, setLtModal] = useState(null);
+  const [editRec, setEditRec] = useState(null);
+  const [editSessions, setEditSessions] = useState([]);
+  const [editReason, setEditReason] = useState("");
+  const [pickU, setPickU] = useState(staff[0]?.id);
+
+  const tabs = [
+    ["dash", "儀表板"],
+    ["leave", `請假審核${pendingLeaves.length ? ` (${pendingLeaves.length})` : ""}`],
+    ["ltype", "假別管理"],
+    ["staff", "員工管理"],
+    ["dept", "單位管理"],
+    ["rec", `出勤紀錄${pendingCorr.length ? ` (${pendingCorr.length})` : ""}`],
+    ["outrec", "外出紀錄"],
+    ["audit", "異動紀錄"],
+  ];
+
+  const activeDepts = departments.filter((d) => d.status === "active");
+
+  return (
+    <div className="card p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <h2 className="f-serif text-lg font-semibold">管理後台</h2>
+        <div className="flex flex-wrap gap-2">
+          {tabs.map(([k, l]) => (
+            <button key={k} className={`chip ${tab === k ? "on" : ""}`} onClick={() => setTab(k)}>{l}</button>
+          ))}
+        </div>
+      </div>
+
+      {tab === "dash" && (() => {
+        const onLeave = staff.filter((u) => leaves.some((l) => l.userId === u.id && l.status === "approved" && leaveCovers(l, ds))).length;
+        const lvPend = staff.filter((u) => leaves.some((l) => l.userId === u.id && l.status === "pending" && leaveCovers(l, ds))).length;
+        const outNow = outings.filter((o) => o.date === ds && !o.end).length;
+        return (
+          <div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {[
+                ["今日請假人數", onLeave],
+                ["今日請假申請中人數", lvPend],
+                ["待審核請假件數", pendingLeaves.length],
+                ["今日外出中人數", outNow],
+              ].map(([label, n]) => (
+                <div key={label} className="statcard">
+                  <div className="text-xs mb-1" style={{ color: "#8B857C" }}>{label}</div>
+                  <div className="statnum">{n}</div>
+                </div>
+              ))}
+            </div>
+            <div className="text-xs mt-4" style={{ color: "#B3ADA4" }}>其他待辦：打卡更正申請 {pendingCorr.length} 件。所有變更即時同步到各裝置。</div>
+          </div>
+        );
+      })()}
+
+      {tab === "leave" && (
+        <div className="space-y-3">
+          {pendingLeaves.length === 0 && <div className="text-sm" style={{ color: "#B3ADA4" }}>目前沒有待審核的請假申請。</div>}
+          {pendingLeaves.map((l) => (
+            <div key={l.id} className="border hair rounded-lg p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="text-sm">
+                  <span className="font-medium">{uName(l.userId)}</span>
+                  <span className="text-xs ml-2" style={{ color: "#8B857C" }}>{uDept(l.userId)}</span>
+                  <span className="ml-2">{tName(l.typeId)}</span>
+                  <span className="ml-2">{l.startDate} {l.startTime} ～ {l.endDate} {l.endTime}（{l.hours}h）</span>
+                  <div className="text-xs mt-1" style={{ color: "#8B857C" }}>
+                    事由：{l.reason}{l.note && `　備註：${l.note}`}　申請時間 {l.appliedAt}
+                  </div>
+                  {l.attachments?.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      {l.attachments.map((a, i) => <AttachmentThumb key={i} att={a} />)}
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <button className="btn btn-ink" onClick={() => { setReviewLv(l); setReviewMode("approve"); setReviewNote(""); }}>批准</button>
+                  <button className="btn btn-line" onClick={() => { setReviewLv(l); setReviewMode("reject"); setReviewNote(""); }}>駁回</button>
+                </div>
+              </div>
+            </div>
+          ))}
+          <div className="f-serif font-semibold mt-6 mb-2">已審核紀錄</div>
+          {leaves.filter((l) => l.status !== "pending").sort((a, b) => b.appliedAt.localeCompare(a.appliedAt)).map((l) => (
+            <div key={l.id} className="border hair rounded-lg p-3 text-sm">
+              <div className="flex flex-wrap gap-2 items-center">
+                <span className="font-medium">{uName(l.userId)}</span>
+                <span>{tName(l.typeId)}</span>
+                <span className="text-xs" style={{ color: "#8B857C" }}>{l.startDate} {l.startTime} ～ {l.endDate} {l.endTime}</span>
+                <LvTag s={l.status} />
+              </div>
+              <div className="text-xs mt-1" style={{ color: "#8B857C" }}>
+                事由：{l.reason}{l.attachments?.length > 0 && `　證明文件 ${l.attachments.length} 件`}
+                {l.status === "approved" && <>　核准管理員：{l.approvedBy?.name}（{l.approvedBy?.email}）　核准時間：{l.approvedAt}{l.approvalNote && `　審核備註：${l.approvalNote}`}</>}
+                {l.status === "rejected" && <>　駁回：{l.rejectedBy?.name}（{l.rejectedBy?.email}）　{l.rejectedAt}　原因：{l.rejectionReason}</>}
+                {l.status === "withdrawn" && <>　已於 {l.withdrawnAt} 撤回</>}
+              </div>
+            </div>
+          ))}
+          <div className="text-xs" style={{ color: "#B3ADA4" }}>已完成審核的紀錄不可刪除。</div>
+        </div>
+      )}
+
+      {tab === "ltype" && (
+        <div>
+          <div className="flex justify-end mb-3">
+            <button className="btn btn-ink" onClick={() => setLtModal({ mode: "add", data: { name: "", code: "", description: "", status: "active" } })}>新增假別</button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead><tr>
+                <th className="th">假別</th><th className="th">代碼</th><th className="th">說明</th><th className="th">狀態</th><th className="th">操作</th>
+              </tr></thead>
+              <tbody>
+                {leaveTypes.map((t) => {
+                  const inUse = leaves.some((l) => l.typeId === t.id);
+                  return (
+                    <tr key={t.id}>
+                      <td className="td font-medium">{t.name}</td>
+                      <td className="td" style={{ color: "#8B857C" }}>{t.code}</td>
+                      <td className="td" style={{ color: "#8B857C" }}>{t.description || "—"}</td>
+                      <td className="td">{t.status === "active" ? <Tag k="in">啟用中</Tag> : <Tag k="done">已停用</Tag>}</td>
+                      <td className="td">
+                        <button className="text-xs underline mr-3" style={{ color: "#8B857C" }} onClick={() => setLtModal({ mode: "edit", data: { ...t } })}>編輯</button>
+                        <button className="text-xs underline mr-3" style={{ color: "#8B857C" }} onClick={() => actions.toggleLeaveType(t.id)}>{t.status === "active" ? "停用" : "啟用"}</button>
+                        <button className="text-xs underline" style={{ color: inUse ? "#B3ADA4" : "#B5402A" }}
+                          onClick={() => actions.deleteLeaveType(t.id, inUse)}>刪除</button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="text-xs mt-3" style={{ color: "#B3ADA4" }}>已有請假紀錄使用的假別無法刪除，僅能停用。</div>
+        </div>
+      )}
+
+      {tab === "staff" && (
+        <div>
+          <div className="flex justify-end mb-3">
+            <button className="btn btn-ink" onClick={() => setStaffModal({ mode: "add", data: { name: "", employeeCode: "", departmentId: activeDepts[0]?.id ?? "" } })}>新增員工</button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead><tr>
+                <th className="th">姓名</th><th className="th">員工代碼</th><th className="th">隸屬單位</th><th className="th">狀態</th>
+                <th className="th">登入失敗</th><th className="th">操作</th>
+              </tr></thead>
+              <tbody>
+                {staff.map((u) => {
+                  const hasRec = hasAnyRecord(u.id);
+                  return (
+                    <tr key={u.id}>
+                      <td className="td font-medium">{u.name}</td>
+                      <td className="td" style={{ color: "#8B857C" }}>
+                        {u.employeeCode || "—"}
+                        {!u.authUserId && <div className="text-xs" style={{ color: "#B5402A" }}>尚未建立登入帳號</div>}
+                      </td>
+                      <td className="td">{u.department}</td>
+                      <td className="td">{u.active ? <Tag k="in">啟用中</Tag> : <Tag k="abn">已停用</Tag>}</td>
+                      <td className="td">{u.failedLogins} 次</td>
+                      <td className="td">
+                        <button className="text-xs underline mr-3" style={{ color: "#8B857C" }}
+                          onClick={() => setStaffModal({ mode: "edit", data: { id: u.id, name: u.name, employeeCode: u.employeeCode, departmentId: u.departmentId } })}>編輯</button>
+                        <button className="text-xs underline mr-3" style={{ color: "#8B857C" }} onClick={() => actions.resetPw(u.id)}>重設密碼</button>
+                        <button className="text-xs underline mr-3" style={{ color: u.active ? "#B5402A" : "#2F6B43" }}
+                          onClick={() => actions.toggleActive(u.id)}>{u.active ? "停用" : "啟用"}</button>
+                        <button className="text-xs underline" style={{ color: "#B5402A" }}
+                          onClick={() => actions.deleteStaff(u.id, hasRec)}>刪除</button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="text-xs mt-3" style={{ color: "#B3ADA4" }}>
+已有打卡、外出、請假或異動紀錄的員工，刪除時會連同這些歷史紀錄一併永久刪除、無法復原，系統會二次確認；平常建議用「停用」保留歷史資料就好。新增員工會自動建立登入帳號並顯示一組臨時密碼，直接告訴本人即可，不需要到 Supabase Dashboard 操作、也不需要 Email。忘記密碼一律由管理員按「重設密碼」處理。
+          </div>
+        </div>
+      )}
+
+      {tab === "dept" && (
+        <div>
+          <div className="flex justify-end mb-3">
+            <button className="btn btn-ink" onClick={() => setDeptModal({ mode: "add", data: { name: "", code: "", note: "", status: "active" } })}>新增單位</button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead><tr>
+                <th className="th">單位名稱</th><th className="th">代碼</th><th className="th">備註</th><th className="th">狀態</th>
+                <th className="th">現有員工</th><th className="th">操作</th>
+              </tr></thead>
+              <tbody>
+                {departments.map((d) => {
+                  const cnt = users.filter((u) => u.departmentId === d.id).length;
+                  return (
+                    <tr key={d.id}>
+                      <td className="td font-medium">{d.name}</td>
+                      <td className="td" style={{ color: "#8B857C" }}>{d.code}</td>
+                      <td className="td" style={{ color: "#8B857C" }}>{d.note || "—"}</td>
+                      <td className="td">{d.status === "active" ? <Tag k="in">啟用中</Tag> : <Tag k="done">已停用</Tag>}</td>
+                      <td className="td">{cnt} 人</td>
+                      <td className="td">
+                        <button className="text-xs underline mr-3" style={{ color: "#8B857C" }} onClick={() => setDeptModal({ mode: "edit", data: { ...d } })}>編輯</button>
+                        <button className="text-xs underline mr-3" style={{ color: "#8B857C" }} onClick={() => actions.toggleDept(d.id, cnt)}>{d.status === "active" ? "停用" : "啟用"}</button>
+                        <button className="text-xs underline" style={{ color: cnt > 0 ? "#B3ADA4" : "#B5402A" }}
+                          onClick={() => actions.deleteDept(d.id, cnt)}>刪除</button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="text-xs mt-3" style={{ color: "#B3ADA4" }}>
+            仍有員工隸屬的單位不可刪除或停用，請先將員工移轉至其他單位。已停用單位不可指派給新員工。
+          </div>
+        </div>
+      )}
+
+      {tab === "rec" && (
+        <div>
+          {pendingCorr.length > 0 && (
+            <div className="mb-5 space-y-3">
+              <div className="f-serif font-semibold">待處理打卡更正申請</div>
+              {pendingCorr.map((rq) => (
+                <div key={rq.id} className="border hair rounded-lg p-4 flex flex-wrap items-center justify-between gap-3">
+                  <div className="text-sm">
+                    <span className="font-medium">{uName(rq.userId)}</span> · {rq.recordDate} · 第 {rq.sessionIdx + 1} 段{rq.field === "in" ? "上班" : "下班"}時間
+                    更正為 <span className="font-medium">{rq.value}</span>
+                    <div className="text-xs mt-1" style={{ color: "#8B857C" }}>原因：{rq.reason}</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button className="btn btn-ink" onClick={() => actions.approveRequest(rq)}>核准並補登</button>
+                    <button className="btn btn-line" onClick={() => actions.rejectRequest(rq)}>退回</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <select className="inp mb-3" style={{ width: "auto", padding: "6px 10px", fontSize: 13 }} value={pickU} onChange={(e) => setPickU(e.target.value)}>
+            {staff.map((u) => <option key={u.id} value={u.id}>{u.name}（{u.department}）</option>)}
+          </select>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead><tr>
+                <th className="th">日期</th><th className="th">上下班段次</th>
+                <th className="th">GPS 座標</th><th className="th">精度</th><th className="th">異動</th><th className="th"></th>
+              </tr></thead>
+              <tbody>
+                {records.filter((r) => r.userId === pickU).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 14).map((r) => (
+                  <tr key={r.id}>
+                    <td className="td">{r.date}</td>
+                    <td className="td">{r.sessions.map((s, i) => <div key={i}>第{i + 1}段 {s.in}–{s.out ?? "…"}</div>)}</td>
+                    <td className="td" style={{ color: "#8B857C" }}>{r.lat != null ? `${r.lat}, ${r.lng}` : "—"}</td>
+                    <td className="td" style={{ color: "#8B857C" }}>{r.accuracy != null ? `±${r.accuracy}m` : "—"}</td>
+                    <td className="td">
+                      {r.modified
+                        ? <details><summary className="tag t-mod cursor-pointer">歷程 {r.history.length}</summary>
+                            {r.history.map((h, i) => (
+                              <div key={i} className="text-xs mt-2" style={{ color: "#8B857C", whiteSpace: "normal", maxWidth: 260 }}>
+                                {h.time}｜{h.admin}｜第{h.sessionIdx + 1}段{h.field === "in" ? "上班" : "下班"} {h.before ?? "—"} → {h.after}<br />原因：{h.reason}
+                              </div>
+                            ))}
+                          </details>
+                        : "—"}
+                    </td>
+                    <td className="td">
+                      <button className="text-xs underline" style={{ color: "#8B857C" }}
+                        onClick={() => { setEditRec(r); setEditSessions(r.sessions.map((s) => ({ in: s.in ?? "", out: s.out ?? "" }))); setEditReason(""); }}>
+                        異動
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="text-xs mt-3" style={{ color: "#B3ADA4" }}>
+            GPS 座標與定位精度僅限管理員檢視，不會出現在公開出勤查詢接口。
+          </div>
+        </div>
+      )}
+
+      {tab === "outrec" && (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead><tr>
+              <th className="th">日期</th><th className="th">員工</th><th className="th">出發</th><th className="th">預計返回</th>
+              <th className="th">實際返回</th><th className="th">地點 · 事由</th><th className="th">返回定位</th>
+            </tr></thead>
+            <tbody>
+              {[...outings].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 25).map((o) => (
+                <tr key={o.id}>
+                  <td className="td">{o.date}</td>
+                  <td className="td font-medium">{uName(o.userId)}</td>
+                  <td className="td">{o.start}</td>
+                  <td className="td">{o.expectedEnd ?? "—"}</td>
+                  <td className="td">{o.end ?? <Tag k="out">外出中</Tag>}</td>
+                  <td className="td">{o.destination} · {o.purpose}</td>
+                  <td className="td" style={{ color: "#8B857C" }}>
+                    {o.end ? <>{o.returnLat}, {o.returnLng}（±{o.returnAccuracy}m）</> : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {tab === "audit" && (
+        <div className="space-y-2">
+          {audit.length === 0 && <div className="text-sm" style={{ color: "#B3ADA4" }}>尚無異動紀錄。</div>}
+          {audit.map((a, i) => (
+            <div key={i} className="border hair rounded-lg p-3 text-sm">
+              <div className="flex flex-wrap gap-2 items-center">
+                <span className="text-xs" style={{ color: "#B3ADA4" }}>{a.time}</span>
+                <span className="font-medium">{a.actor}</span>
+                <span className="tag t-mod">{a.action}</span>
+                <span>{a.target}</span>
+              </div>
+              <div className="text-xs mt-1" style={{ color: "#8B857C" }}>{a.detail}</div>
+            </div>
+          ))}
+          <div className="text-xs" style={{ color: "#B3ADA4" }}>異動紀錄為唯讀，所有歷程不可刪除。</div>
+        </div>
+      )}
+
+      {reviewLv && (
+        <Modal title={reviewMode === "approve" ? "批准請假" : "駁回請假"} onClose={() => setReviewLv(null)}>
+          <div className="space-y-3 text-sm">
+            <div className="dline">
+              <div><b>{uName(reviewLv.userId)}</b>　{uDept(reviewLv.userId)}</div>
+              <div>{tName(reviewLv.typeId)}　{reviewLv.startDate} {reviewLv.startTime} ～ {reviewLv.endDate} {reviewLv.endTime}（{reviewLv.hours}h）</div>
+              <div>事由：{reviewLv.reason}{reviewLv.note && `　備註：${reviewLv.note}`}</div>
+              {reviewLv.attachments?.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 mt-1">
+                  {reviewLv.attachments.map((a, i) => <AttachmentThumb key={i} att={a} />)}
+                </div>
+              )}
+            </div>
+            <div>
+              <label className="text-xs" style={{ color: "#8B857C" }}>
+                {reviewMode === "approve" ? "審核備註（選填）" : "駁回原因（必填）"}
+              </label>
+              <input className="inp mt-1" value={reviewNote} onChange={(e) => setReviewNote(e.target.value)} />
+            </div>
+            <button className={`btn w-full ${reviewMode === "approve" ? "btn-ink" : "btn-brick"}`}
+              disabled={reviewMode === "reject" && !reviewNote.trim()}
+              onClick={() => {
+                if (reviewMode === "approve") actions.approveLeave(reviewLv, reviewNote);
+                else actions.rejectLeave(reviewLv, reviewNote);
+                setReviewLv(null);
+              }}>
+              {reviewMode === "approve" ? "確認批准（記錄核准管理員）" : "確認駁回（記錄駁回管理員）"}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {staffModal && (
+        <Modal title={staffModal.mode === "add" ? "新增員工" : "編輯員工"} onClose={() => setStaffModal(null)}>
+          <div className="space-y-3">
+            <input className="inp" value={staffModal.data.name} placeholder="姓名"
+              onChange={(e) => setStaffModal((m) => ({ ...m, data: { ...m.data, name: e.target.value } }))} />
+            <input className="inp" value={staffModal.data.employeeCode} placeholder="員工代碼（登入時輸入這個，例：bozhe）"
+              onChange={(e) => setStaffModal((m) => ({ ...m, data: { ...m.data, employeeCode: e.target.value.trim() } }))} />
+            <select className="inp" value={staffModal.data.departmentId}
+              onChange={(e) => setStaffModal((m) => ({ ...m, data: { ...m.data, departmentId: e.target.value } }))}>
+              {activeDepts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+            {staffModal.mode === "add" && <div className="text-xs" style={{ color: "#8B857C" }}>建立後會自動產生登入帳號與一組臨時密碼（畫面上會顯示一次，請直接複製告訴本人）。</div>}
+            <button className="btn btn-ink w-full" disabled={!staffModal.data.name || !staffModal.data.employeeCode}
+              onClick={() => {
+                if (staffModal.mode === "add") actions.addStaff(staffModal.data);
+                else actions.editStaff(staffModal.data);
+                setStaffModal(null);
+              }}>
+              {staffModal.mode === "add" ? "建立員工資料" : "儲存變更"}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {deptModal && (
+        <Modal title={deptModal.mode === "add" ? "新增單位" : "編輯單位"} onClose={() => setDeptModal(null)}>
+          <div className="space-y-3">
+            <input className="inp" value={deptModal.data.name} placeholder="單位名稱"
+              onChange={(e) => setDeptModal((m) => ({ ...m, data: { ...m.data, name: e.target.value } }))} />
+            <input className="inp" value={deptModal.data.code} placeholder="單位代碼"
+              onChange={(e) => setDeptModal((m) => ({ ...m, data: { ...m.data, code: e.target.value } }))} />
+            <input className="inp" value={deptModal.data.note} placeholder="備註"
+              onChange={(e) => setDeptModal((m) => ({ ...m, data: { ...m.data, note: e.target.value } }))} />
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={deptModal.data.status === "active"}
+                onChange={(e) => setDeptModal((m) => ({ ...m, data: { ...m.data, status: e.target.checked ? "active" : "disabled" } }))} />
+              啟用狀態
+            </label>
+            <button className="btn btn-ink w-full" disabled={!deptModal.data.name || !deptModal.data.code}
+              onClick={() => {
+                if (deptModal.mode === "add") actions.addDept(deptModal.data);
+                else actions.editDept(deptModal.data);
+                setDeptModal(null);
+              }}>
+              {deptModal.mode === "add" ? "建立單位" : "儲存變更"}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {ltModal && (
+        <Modal title={ltModal.mode === "add" ? "新增假別" : "編輯假別"} onClose={() => setLtModal(null)}>
+          <div className="space-y-3">
+            <input className="inp" value={ltModal.data.name} placeholder="假別名稱"
+              onChange={(e) => setLtModal((m) => ({ ...m, data: { ...m.data, name: e.target.value } }))} />
+            <input className="inp" value={ltModal.data.code} placeholder="代碼"
+              onChange={(e) => setLtModal((m) => ({ ...m, data: { ...m.data, code: e.target.value } }))} />
+            <input className="inp" value={ltModal.data.description} placeholder="說明"
+              onChange={(e) => setLtModal((m) => ({ ...m, data: { ...m.data, description: e.target.value } }))} />
+            <button className="btn btn-ink w-full" disabled={!ltModal.data.name}
+              onClick={() => {
+                if (ltModal.mode === "add") actions.addLeaveType(ltModal.data);
+                else actions.editLeaveType(ltModal.data);
+                setLtModal(null);
+              }}>
+              {ltModal.mode === "add" ? "建立假別" : "儲存變更"}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {editRec && (
+        <Modal title={`異動打卡紀錄 · ${editRec.date}`} onClose={() => setEditRec(null)}>
+          <div className="space-y-3">
+            {editSessions.map((s, i) => (
+              <div key={i} className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs" style={{ color: "#8B857C" }}>第 {i + 1} 段上班</label>
+                  <input className="inp mt-1" value={s.in}
+                    onChange={(e) => setEditSessions((arr) => arr.map((x, j) => (j === i ? { ...x, in: e.target.value } : x)))} />
+                </div>
+                <div>
+                  <label className="text-xs" style={{ color: "#8B857C" }}>第 {i + 1} 段下班</label>
+                  <input className="inp mt-1" value={s.out}
+                    onChange={(e) => setEditSessions((arr) => arr.map((x, j) => (j === i ? { ...x, out: e.target.value } : x)))} />
+                </div>
+              </div>
+            ))}
+            <div>
+              <label className="text-xs" style={{ color: "#8B857C" }}>異動原因（必填）</label>
+              <input className="inp mt-1" value={editReason} onChange={(e) => setEditReason(e.target.value)} placeholder="請說明異動依據" />
+            </div>
+            <button className="btn btn-brick w-full" disabled={!editReason}
+              onClick={() => { actions.adminEdit(editRec, editSessions, editReason); setEditRec(null); }}>
+              確認異動（保留原始紀錄）
+            </button>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+/* ---------- 主程式 ---------- */
+function PhaseAttendance() {
+  const [session, setSession] = useState(undefined); // undefined = 尚未取得, null = 未登入
+  const [me, setMe] = useState(null);
+  const [meError, setMeError] = useState("");
+  const [departments, setDepartments] = useState([]);
+  const [leaveTypes, setLeaveTypes] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [records, setRecords] = useState([]);
+  const [outings, setOutings] = useState([]);
+  const [leaves, setLeaves] = useState([]);
+  const [requests, setRequests] = useState([]);
+  const [audit, setAudit] = useState([]);
+  const [teamToday, setTeamToday] = useState([]);
+  const [now, setNow] = useState(new Date());
+  const [lastSync, setLastSync] = useState("");
+  const [syncStatus, setSyncStatus] = useState("connecting");
+  const [page, setPage] = useState("home");
+  const [toast, setToast] = useState("");
+
+  useEffect(() => {
+    sb.auth.getSession().then(({ data }) => setSession(data.session ?? null));
+    const { data: sub } = sb.auth.onAuthStateChange((_event, s) => setSession(s));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (session === undefined) return;
+    if (!session) { setMe(null); return; }
+    (async () => {
+      const { data, error } = await sb.from("employees").select("*, departments(name)").eq("auth_user_id", session.user.id).maybeSingle();
+      if (error || !data) { setMeError("此帳號尚未綁定員工資料，請聯絡管理員"); setMe(null); return; }
+      if (!data.active) { setMeError("此帳號已停用，請聯絡管理員"); await sb.auth.signOut(); setMe(null); return; }
+      setMeError("");
+      setMe(mapEmployee(data));
+    })();
+  }, [session]);
+
+  const loadAll = useCallback(async () => {
+    const ds = today();
+    const [depR, ltR, empR, recR, outR, lvR, reqR, audR, teamR] = await Promise.all([
+      sb.from("departments").select("*").order("name"),
+      sb.from("leave_types").select("*").order("created_at"),
+      sb.from("employees").select("*, departments(name)").order("name"),
+      sb.from("attendance_records").select("*").order("date", { ascending: false }).limit(600),
+      sb.from("outings").select("*").order("date", { ascending: false }).limit(600),
+      sb.from("leaves").select("*, approver:employees!leaves_approved_by_fkey(name,email), rejecter:employees!leaves_rejected_by_fkey(name,email)").order("applied_at", { ascending: false }),
+      sb.from("correction_requests").select("*").order("created_at", { ascending: false }),
+      sb.from("audit_log").select("*").order("created_at", { ascending: false }).limit(300),
+      sb.rpc("team_snapshot", { p_start: ds, p_end: ds }),
+    ]);
+    if (depR.data) setDepartments(depR.data.map(mapDept));
+    if (ltR.data) setLeaveTypes(ltR.data.map(mapLeaveType));
+    if (empR.data) setEmployees(empR.data.map(mapEmployee));
+    if (recR.data) setRecords(recR.data.map(mapRecord));
+    if (outR.data) setOutings(outR.data.map(mapOuting));
+    if (lvR.data) setLeaves(lvR.data.map(mapLeave));
+    if (reqR.data) setRequests(reqR.data.map(mapRequest));
+    if (audR.data) setAudit(audR.data.map(mapAudit));
+    if (teamR.data) setTeamToday(teamR.data.map(buildViewRow));
+    setLastSync(fmtTime(new Date()));
+  }, []);
+
+  useEffect(() => { if (me) loadAll(); }, [me, loadAll]);
+
+  const reloadTimer = useRef(null);
+  const scheduleReload = useCallback(() => {
+    if (reloadTimer.current) clearTimeout(reloadTimer.current);
+    reloadTimer.current = setTimeout(() => { loadAll(); }, 700);
+  }, [loadAll]);
+
+  useEffect(() => {
+    if (!me) return;
+    const channel = sb.channel("phase-attendance-sync");
+    ["attendance_records", "outings", "leaves", "correction_requests", "employees", "departments", "leave_types"].forEach((t) => {
+      channel.on("postgres_changes", { event: "*", schema: "public", table: t }, scheduleReload);
+    });
+    channel.subscribe((status) => setSyncStatus(status));
+    return () => { sb.removeChannel(channel); };
+  }, [me?.id, scheduleReload]);
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(""), 3000);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const ds = today();
+  const myRec = me ? records.find((r) => r.userId === me.id && r.date === ds) || null : null;
+  const myOutings = me ? outings.filter((o) => o.userId === me.id && o.date === ds) : [];
+  const myLeavesToday = me ? leaves.filter((l) => l.userId === me.id && leaveCovers(l, ds) && l.status === "approved") : [];
+  const view = teamToday;
+
+  const log = (action, target, detail, actorLabel) =>
+    sb.from("audit_log").insert({ actor_id: me.id, actor_label: actorLabel, action, target, detail: detail || "" });
+
+  /* --- 員工操作 --- */
+  const clockIn = async () => {
+    const t = fmtTime(new Date());
+    const pos = await getPosition();
+    const exist = records.find((r) => r.userId === me.id && r.date === ds);
+    let error;
+    if (exist) {
+      ({ error } = await sb.from("attendance_records").update({ sessions: [...exist.sessions, { in: t, out: null }] }).eq("id", exist.id));
+    } else {
+      ({ error } = await sb.from("attendance_records").insert({
+        employee_id: me.id, date: ds, sessions: [{ in: t, out: null }],
+        lat: pos?.lat ?? null, lng: pos?.lng ?? null, accuracy: pos?.accuracy ?? null,
+      }));
+    }
+    if (error) { setToast("打卡失敗：" + error.message); return; }
+    setToast(pos ? "上班打卡完成" : "上班打卡完成（GPS 定位失敗，僅記錄時間）");
+    loadAll();
+  };
+  const clockOut = async () => {
+    const rec = records.find((r) => r.userId === me.id && r.date === ds);
+    if (!rec) return;
+    const sessions = rec.sessions.map((s) => (!s.out ? { ...s, out: fmtTime(new Date()) } : s));
+    const { error } = await sb.from("attendance_records").update({ sessions }).eq("id", rec.id);
+    if (error) { setToast("打卡失敗：" + error.message); return; }
+    setToast("下班打卡完成，辛苦了。如需再次上班可重新打卡");
+    loadAll();
+  };
+  const outStart = async (destination, purpose, expectedEnd) => {
+    const { error } = await sb.from("outings").insert({
+      employee_id: me.id, date: ds, start_time: fmtTime(new Date()),
+      expected_end: expectedEnd, destination, purpose,
+    });
+    if (error) { setToast("外出登記失敗：" + error.message); return; }
+    setToast("外出登記完成");
+    loadAll();
+  };
+  const outEnd = async () => {
+    const o = outings.find((x) => x.userId === me.id && x.date === ds && !x.end);
+    if (!o) return;
+    const pos = await getPosition();
+    const { error } = await sb.from("outings").update({
+      end_time: fmtTime(new Date()),
+      return_lat: pos?.lat ?? null, return_lng: pos?.lng ?? null, return_accuracy: pos?.accuracy ?? null,
+      returned_at: new Date().toISOString(),
+    }).eq("id", o.id);
+    if (error) { setToast("操作失敗：" + error.message); return; }
+    setToast("已完成返回，狀態恢復為已上班");
+    loadAll();
+  };
+  const applyLeave = async (f) => {
+    const { data, error } = await sb.from("leaves").insert({
+      employee_id: me.id, leave_type_id: f.typeId, reason: f.reason,
+      start_date: f.startDate, start_time: f.startTime, end_date: f.endDate, end_time: f.endTime,
+      hours: f.hours, note: f.note,
+    }).select().single();
+    if (error) { setToast("送出失敗：" + error.message); return; }
+    if (f.attachments?.length) {
+      const uploaded = await uploadAttachments(f.attachments, me.authUserId, data.id);
+      await sb.from("leaves").update({ attachments: uploaded }).eq("id", data.id);
+    }
+    setToast("請假申請已送出，狀態為待審核");
+    loadAll();
+  };
+  const withdrawLeave = async (lv) => {
+    const { error } = await sb.from("leaves").update({ status: "withdrawn", withdrawn_at: new Date().toISOString() }).eq("id", lv.id).eq("status", "pending");
+    if (error) { setToast("撤回失敗：" + error.message); return; }
+    setToast("已撤回申請，可重新提出");
+    loadAll();
+  };
+  const addLeaveAttachment = async (leaveId, files) => {
+    const lv = leaves.find((l) => l.id === leaveId);
+    if (!lv) return;
+    const uploaded = await uploadAttachments(files, me.authUserId, leaveId);
+    const { error } = await sb.from("leaves").update({ attachments: [...(lv.attachments || []), ...uploaded] }).eq("id", leaveId);
+    if (error) { setToast("上傳失敗：" + error.message); return; }
+    await log("補上傳證明文件", `請假申請 ${leaveId}`, `新增 ${uploaded.length} 件`, me.name);
+    setToast(`已上傳 ${uploaded.length} 件證明文件`);
+    loadAll();
+  };
+  const submitCorrection = async (rec, sessionIdx, field, value, reason) => {
+    const { error } = await sb.from("correction_requests").insert({
+      employee_id: me.id, record_date: rec.date, session_idx: sessionIdx, field, value, reason,
+    });
+    if (error) { setToast("送出失敗：" + error.message); return; }
+    setToast("更正申請已送出，待管理員審核");
+    loadAll();
+  };
+  const changePw = async (npw) => {
+    const { error } = await sb.auth.updateUser({ password: npw });
+    setToast(error ? "密碼更新失敗：" + error.message : "密碼已更新");
+  };
+
+  /* --- 管理員操作 --- */
+  const adminActions = {
+    approveLeave: async (lv, note) => {
+      const { error } = await sb.from("leaves").update({
+        status: "approved", approved_by: me.id, approved_at: new Date().toISOString(), approval_note: note || "",
+      }).eq("id", lv.id);
+      if (error) { setToast("操作失敗：" + error.message); return; }
+      await log("批准請假", `${lv.userId} ${lv.startDate} ${lv.startTime}～${lv.endDate} ${lv.endTime}`, `核准管理員：${me.name}${note ? `｜審核備註：${note}` : ""}`, `${me.name}（管理員）`);
+      setToast(`已批准，核准管理員：${me.name}`); loadAll();
+    },
+    rejectLeave: async (lv, reasonTxt) => {
+      const { error } = await sb.from("leaves").update({
+        status: "rejected", rejected_by: me.id, rejected_at: new Date().toISOString(), rejection_reason: reasonTxt,
+      }).eq("id", lv.id);
+      if (error) { setToast("操作失敗：" + error.message); return; }
+      await log("駁回請假", `${lv.userId} ${lv.startDate}～${lv.endDate}`, `駁回管理員：${me.name}｜原因：${reasonTxt}`, `${me.name}（管理員）`);
+      setToast("已駁回並記錄原因"); loadAll();
+    },
+    addLeaveType: async (d) => {
+      await sb.from("leave_types").insert({ name: d.name, code: d.code, description: d.description });
+      await log("新增假別", d.name, `代碼 ${d.code}`, `${me.name}（管理員）`);
+      loadAll();
+    },
+    editLeaveType: async (d) => {
+      await sb.from("leave_types").update({ name: d.name, code: d.code, description: d.description }).eq("id", d.id);
+      await log("編輯假別", d.name, "", `${me.name}（管理員）`);
+      loadAll();
+    },
+    toggleLeaveType: async (id) => {
+      const t = leaveTypes.find((x) => x.id === id);
+      await sb.from("leave_types").update({ status: t.status === "active" ? "disabled" : "active" }).eq("id", id);
+      await log(t.status === "active" ? "停用假別" : "啟用假別", t.name, "", `${me.name}（管理員）`);
+      loadAll();
+    },
+    deleteLeaveType: async (id, inUse) => {
+      if (inUse) { setToast("此假別已有請假紀錄使用，無法刪除，請改為停用"); return; }
+      const t = leaveTypes.find((x) => x.id === id);
+      await sb.from("leave_types").delete().eq("id", id);
+      await log("刪除假別", t.name, "", `${me.name}（管理員）`);
+      loadAll();
+    },
+    approveRequest: async (rq) => {
+      const rec = records.find((r) => r.userId === rq.userId && r.date === rq.recordDate);
+      if (!rec) { setToast("找不到對應的出勤紀錄"); return; }
+      const before = rec.sessions[rq.sessionIdx]?.[rq.field] ?? null;
+      const sessions = rec.sessions.map((s, i) => (i === rq.sessionIdx ? { ...s, [rq.field]: rq.value } : s));
+      const history = [...rec.history, { time: nowStamp(), admin: me.name, reason: `更正申請核准：${rq.reason}`, sessionIdx: rq.sessionIdx, field: rq.field, before, after: rq.value }];
+      await sb.from("attendance_records").update({ sessions, modified: true, history }).eq("id", rec.id);
+      await sb.from("correction_requests").update({ status: "approved" }).eq("id", rq.id);
+      await log("核准更正申請", `${rq.userId} ${rq.recordDate} 第${rq.sessionIdx + 1}段${rq.field === "in" ? "上班" : "下班"}時間`, `改為 ${rq.value}｜原因：${rq.reason}`, `${me.name}（管理員）`);
+      setToast("已核准並補登"); loadAll();
+    },
+    rejectRequest: async (rq) => {
+      await sb.from("correction_requests").update({ status: "rejected" }).eq("id", rq.id);
+      await log("退回更正申請", `${rq.userId} ${rq.recordDate}`, `原因：${rq.reason}`, `${me.name}（管理員）`);
+      loadAll();
+    },
+    adminEdit: async (rec, newSessions, reason) => {
+      const hist = [...rec.history];
+      newSessions.forEach((ns, i) => {
+        ["in", "out"].forEach((f) => {
+          const nv = ns[f] || null;
+          const ov = rec.sessions[i]?.[f] ?? null;
+          if (nv && nv !== ov) hist.push({ time: nowStamp(), admin: me.name, reason, sessionIdx: i, field: f, before: ov, after: nv });
+        });
+      });
+      const changed = hist.length > rec.history.length;
+      const sessions = rec.sessions.map((s, i) => ({ in: newSessions[i]?.in || s.in, out: newSessions[i]?.out || s.out }));
+      await sb.from("attendance_records").update({ sessions, modified: changed ? true : rec.modified, history: hist }).eq("id", rec.id);
+      await log("異動打卡紀錄", `${rec.userId} ${rec.date}`, `原因：${reason}`, `${me.name}（管理員）`);
+      setToast("異動完成，原始紀錄已保留"); loadAll();
+    },
+    addStaff: async (d) => {
+      const syntheticEmail = `${d.employeeCode}-${Date.now()}@phase-attendance.local`;
+      const tempPassword = genTempPassword();
+      const { userId: authUserId, error: signUpError } = await signUpEmployee(syntheticEmail, tempPassword);
+      if (signUpError) { setToast("建立登入帳號失敗：" + signUpError); return; }
+      const { error } = await sb.from("employees").insert({
+        name: d.name, email: syntheticEmail, employee_code: d.employeeCode,
+        department_id: d.departmentId, role: "staff", active: true, auth_user_id: authUserId,
+      });
+      if (error) { setToast("建立員工資料失敗：" + error.message); return; }
+      await log("新增員工帳號", `${d.name}（${d.employeeCode}）`, "已自動建立登入帳號", `${me.name}（管理員）`);
+      window.alert(`已建立 ${d.name} 的帳號。\n\n員工代碼：${d.employeeCode}\n臨時密碼：${tempPassword}\n\n請把這組資訊告訴本人，登入後建議到「我的出勤」修改密碼。這組密碼只會顯示這一次，請先複製起來。`);
+      setToast("員工帳號已建立");
+      loadAll();
+    },
+    editStaff: async (d) => {
+      await sb.from("employees").update({ name: d.name, employee_code: d.employeeCode, department_id: d.departmentId }).eq("id", d.id);
+      await log("編輯員工資料", d.name, `代碼/單位：${d.employeeCode}／${d.departmentId}`, `${me.name}（管理員）`);
+      loadAll();
+    },
+    deleteStaff: async (uid, hasRec) => {
+      const u = employees.find((x) => x.id === uid);
+      if (hasRec) {
+        if (!window.confirm(`${u?.name ?? "此員工"} 已有出勤／外出／請假／更正申請紀錄，永久刪除會連同這些歷史紀錄一起消失，無法復原。確定要刪除嗎？`)) return;
+        if (!window.confirm("再次確認：這個動作無法復原，真的要永久刪除嗎？")) return;
+      } else {
+        if (!window.confirm(`確定要永久刪除 ${u?.name ?? "此員工"} 嗎？`)) return;
+      }
+      const { error } = await sb.from("employees").delete().eq("id", uid);
+      if (error) { setToast("刪除失敗：" + error.message); return; }
+      await log("刪除員工資料", u?.name ?? uid, hasRec ? "已連同歷史紀錄一併永久刪除" : "該員工無任何出勤紀錄", `${me.name}（管理員）`);
+      setToast("已永久刪除"); loadAll();
+    },
+    toggleActive: async (uid) => {
+      const u = employees.find((x) => x.id === uid);
+      await sb.from("employees").update({ active: !u.active }).eq("id", uid);
+      await log(u.active ? "停用帳號" : "啟用帳號", u.name, "", `${me.name}（管理員）`);
+      loadAll();
+    },
+    resetPw: async (uid) => {
+      const u = employees.find((x) => x.id === uid);
+      const syntheticEmail = `${u.employeeCode}-${Date.now()}@phase-attendance.local`;
+      const tempPassword = genTempPassword();
+      const { userId: newAuthUserId, error } = await signUpEmployee(syntheticEmail, tempPassword);
+      if (error) { setToast("重設失敗：" + error); return; }
+      await sb.from("employees").update({ auth_user_id: newAuthUserId, email: syntheticEmail }).eq("id", uid);
+      window.alert(`已重設 ${u.name} 的密碼。\n\n員工代碼：${u.employeeCode}\n新密碼：${tempPassword}\n\n請把這組資訊告訴本人，登入後建議修改密碼。這組密碼只會顯示這一次，請先複製起來。`);
+      await log("重設密碼", u.name, "已建立新登入帳號取代舊的", `${me.name}（管理員）`);
+      setToast("密碼已重設"); loadAll();
+    },
+    addDept: async (d) => {
+      const { error } = await sb.from("departments").insert({ name: d.name, code: d.code, note: d.note, status: d.status });
+      if (error) { setToast("建立失敗：" + error.message); return; }
+      await log("新增單位", d.name, `代碼 ${d.code}`, `${me.name}（管理員）`);
+      loadAll();
+    },
+    editDept: async (d) => {
+      await sb.from("departments").update({ name: d.name, code: d.code, note: d.note, status: d.status }).eq("id", d.id);
+      await log("編輯單位", d.name, "", `${me.name}（管理員）`);
+      loadAll();
+    },
+    toggleDept: async (id, cnt) => {
+      const d = departments.find((x) => x.id === id);
+      if (d.status === "active" && cnt > 0) { setToast("此單位仍有員工，請先將員工移轉至其他單位。"); return; }
+      await sb.from("departments").update({ status: d.status === "active" ? "disabled" : "active" }).eq("id", id);
+      await log(d.status === "active" ? "停用單位" : "啟用單位", d.name, "", `${me.name}（管理員）`);
+      loadAll();
+    },
+    deleteDept: async (id, cnt) => {
+      if (cnt > 0) { setToast("此單位仍有員工，請先將員工移轉至其他單位。"); return; }
+      const d = departments.find((x) => x.id === id);
+      await sb.from("departments").delete().eq("id", id);
+      await log("刪除單位", d.name, "", `${me.name}（管理員）`);
+      loadAll();
+    },
+  };
+
+  if (session === undefined || (session && !me && !meError)) {
+    return (
+      <div className="ph-root flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="f-serif text-2xl font-bold tracking-widest">PHASE</div>
+          <div className="text-sm mt-3" style={{ color: "#8B857C" }}>正在連線…</div>
+        </div>
+      </div>
+    );
+  }
+  if (!session) return <Login />;
+  if (meError) {
+    return (
+      <div className="ph-root flex items-center justify-center min-h-screen">
+        <div className="text-center card p-8 max-w-sm">
+          <div className="f-serif text-xl font-bold mb-3">PHASE</div>
+          <div className="text-sm brick mb-4">{meError}</div>
+          <button className="btn btn-line" onClick={() => sb.auth.signOut()}>登出</button>
+        </div>
+      </div>
+    );
+  }
+  if (!me) return null;
+
+  const navs = me.role === "admin"
+    ? [["home", "出勤總覽"], ["calendar", "出勤行事曆"], ["admin", "管理後台"]]
+    : [["home", "出勤總覽"], ["calendar", "出勤行事曆"], ["mine", "我的出勤"], ["leave", "請假申請"]];
+
+  return (
+    <div className="ph-root">
+      <div className="max-w-6xl mx-auto px-4 py-6 lg:flex lg:gap-8">
+        <aside className="lg:w-52 mb-6 lg:mb-0 shrink-0">
+          <div className="mb-6">
+            <div className="f-serif text-2xl font-bold tracking-widest">PHASE</div>
+            <div className="text-xs" style={{ color: "#B3ADA4", letterSpacing: ".25em" }}>ATTENDANCE</div>
+            <div className="text-xs mt-2" style={{ color: syncStatus === "SUBSCRIBED" ? "#2F6B43" : "#B3ADA4" }}>
+              {syncStatus === "SUBSCRIBED" ? "● 即時同步中" : "○ 連線中"}
+            </div>
+          </div>
+          <nav className="flex lg:block gap-2 overflow-x-auto">
+            {navs.map(([k, l]) => (
+              <button key={k} className={`navbtn ${page === k ? "on" : ""}`} style={{ width: "auto", minWidth: "max-content" }} onClick={() => setPage(k)}>{l}</button>
+            ))}
+          </nav>
+          <div className="mt-6 pt-4 border-t hair text-sm hidden lg:block">
+            <div className="font-medium">{me.name}</div>
+            <div className="text-xs" style={{ color: "#8B857C" }}>{me.department} · {me.role === "admin" ? "管理員" : "員工"}</div>
+            <button className="text-xs underline mt-2" style={{ color: "#8B857C" }} onClick={() => sb.auth.signOut()}>登出</button>
+          </div>
+        </aside>
+
+        <main className="flex-1 space-y-6 min-w-0">
+          <div className="flex lg:hidden items-center justify-between text-sm">
+            <div>{me.name} · {me.department}</div>
+            <button className="text-xs underline" style={{ color: "#8B857C" }} onClick={() => sb.auth.signOut()}>登出</button>
+          </div>
+
+          {page === "home" && (
+            <>
+              {me.role !== "admin" && (
+                <ClockCard me={me} myRec={myRec} myOutings={myOutings} myLeavesToday={myLeavesToday} now={now}
+                  onClockIn={clockIn} onClockOut={clockOut} onOutStart={outStart} onOutEnd={outEnd} />
+              )}
+              <TeamBoard view={view} lastSync={lastSync} syncStatus={syncStatus} />
+            </>
+          )}
+          {page === "calendar" && (
+            <CalendarView me={me} users={employees} leaves={leaves} leaveTypes={leaveTypes} />
+          )}
+          {page === "mine" && me.role !== "admin" && (
+            <MyAttendance me={me} records={records} outings={outings} onCorrection={submitCorrection} onChangePw={changePw} />
+          )}
+          {page === "leave" && me.role !== "admin" && (
+            <LeavePage me={me} leaves={leaves} leaveTypes={leaveTypes} onApply={applyLeave} onWithdraw={withdrawLeave} onAddAttachment={addLeaveAttachment} />
+          )}
+          {page === "admin" && me.role === "admin" && (
+            <AdminPanel me={me} users={employees} departments={departments} records={records} outings={outings}
+              leaves={leaves} leaveTypes={leaveTypes} requests={requests} audit={audit} actions={adminActions} />
+          )}
+        </main>
+      </div>
+
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-3 rounded-full text-sm text-white z-50" style={{ background: "#1A0800" }}>
+          {toast}
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<PhaseAttendance />);
+</script>
+<script>
+  // 手動轉譯，強制用傳統 JSX runtime（React.createElement），
+  // 避免 @babel/standalone 自動轉譯時插入 `import` 陳述式導致 classic script 執行失敗
+  const __src = document.getElementById("app-source").textContent;
+  const __out = Babel.transform(__src, {
+    presets: [["react", { runtime: "classic" }]],
+    filename: "app.jsx",
+  }).code;
+  const __s = document.createElement("script");
+  __s.textContent = __out;
+  document.body.appendChild(__s);
+</script>
+</body>
+</html>
