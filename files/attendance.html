@@ -64,9 +64,15 @@ body{margin:0;}
 @media (max-width: 640px) {
   .btn{padding:11px 16px;font-size:14px;}
   .th,.td{padding:8px 6px;font-size:12px;}
-  .daycell{min-height:44px;padding:4px !important;}
-  .daycell .text-xs{font-size:10px;line-height:1.3;}
+  .daycell{min-height:40px;padding:3px !important;}
+  .daycell .text-xs{font-size:9px;line-height:1.2;}
+  .daycell .tag{
+    font-size:9px;padding:1px 3px;white-space:normal;text-align:center;
+    line-height:1.15;max-width:100%;display:inline-block;
+  }
   .clockdigits{font-size:32px !important;}
+  .cal-card{padding:12px !important;}
+  .cal-grid{gap:2px !important;}
 }
 </style>
 </head>
@@ -552,7 +558,7 @@ function CalendarView({ me, users, leaves, leaveTypes }) {
   const reasonFor = (leaveSnapId) => leaves.find((l) => l.id === leaveSnapId)?.reason ?? null;
 
   return (
-    <div className="card p-6">
+    <div className="card p-6 cal-card">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <h2 className="f-serif text-lg font-semibold">出勤行事曆</h2>
         <div className="flex gap-2">
@@ -573,7 +579,7 @@ function CalendarView({ me, users, leaves, leaveTypes }) {
       <div className="grid grid-cols-7 gap-1 text-center text-xs mb-1" style={{ color: "#8B857C" }}>
         {weekdayNames.map((w) => <div key={w} className="py-1">{w}</div>)}
       </div>
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-1 cal-grid">
         {cells.map((d, i) => {
           if (!d) return <div key={i} />;
           const ds = dstr(d);
@@ -704,7 +710,7 @@ function DayOffPage({ me, users, dayOffs, onToggle }) {
     .map((u) => u.name);
 
   return (
-    <div className="card p-6">
+    <div className="card p-6 cal-card">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <h2 className="f-serif text-lg font-semibold">排休</h2>
         {canEditOthers && (
@@ -721,7 +727,7 @@ function DayOffPage({ me, users, dayOffs, onToggle }) {
       <div className="grid grid-cols-7 gap-1 text-center text-xs mb-1" style={{ color: "#8B857C" }}>
         {weekdayNames.map((w) => <div key={w} className="py-1">{w}</div>)}
       </div>
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-1 cal-grid">
         {cells.map((d, i) => {
           if (!d) return <div key={i} />;
           const ds = dstr(d);
@@ -1043,6 +1049,9 @@ function AdminPanel({ me, users, departments, records, outings, leaves, leaveTyp
   const [editSessions, setEditSessions] = useState([]);
   const [editReason, setEditReason] = useState("");
   const [pickU, setPickU] = useState(staff[0]?.id);
+  const nowD0 = new Date();
+  const [hoursYm, setHoursYm] = useState({ y: nowD0.getFullYear(), m: nowD0.getMonth() });
+  const moveHoursYm = (k) => setHoursYm(({ y, m }) => { const d = new Date(y, m + k, 1); return { y: d.getFullYear(), m: d.getMonth() }; });
 
   const tabs = [
     ["dash", "儀表板"],
@@ -1052,6 +1061,7 @@ function AdminPanel({ me, users, departments, records, outings, leaves, leaveTyp
     ["dept", "單位管理"],
     ["rec", `出勤紀錄${pendingCorr.length ? ` (${pendingCorr.length})` : ""}`],
     ["outrec", "外出紀錄"],
+    ["hours", "工時統計"],
     ["audit", "異動紀錄"],
   ];
 
@@ -1350,6 +1360,50 @@ function AdminPanel({ me, users, departments, records, outings, leaves, leaveTyp
           </table>
         </div>
       )}
+
+      {tab === "hours" && (() => {
+        const y = hoursYm.y, m = hoursYm.m;
+        const prefix = `${y}-${pad(m + 1)}`;
+        const rows = staff.map((u) => {
+          const recs = records.filter((r) => r.userId === u.id && r.date.startsWith(prefix));
+          const totalHours = recs.reduce((sum, r) => sum + Number(sessionHours(r.sessions)), 0);
+          const daysWorked = recs.filter((r) => r.sessions.length > 0).length;
+          const hasOpenSession = recs.some((r) => r.sessions.some((s) => s.in && !s.out));
+          return { u, totalHours, daysWorked, hasOpenSession };
+        });
+        return (
+          <div>
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              <button className="btn btn-line" onClick={() => moveHoursYm(-1)}>‹</button>
+              <div className="f-serif font-semibold">{y} 年 {m + 1} 月</div>
+              <button className="btn btn-line" onClick={() => moveHoursYm(1)}>›</button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead><tr>
+                  <th className="th">員工</th><th className="th">單位</th><th className="th">出勤天數</th>
+                  <th className="th">總工時</th><th className="th">備註</th>
+                </tr></thead>
+                <tbody>
+                  {rows.map(({ u, totalHours, daysWorked, hasOpenSession }) => (
+                    <tr key={u.id}>
+                      <td className="td font-medium">{u.name}</td>
+                      <td className="td" style={{ color: "#8B857C" }}>{u.department}</td>
+                      <td className="td">{daysWorked} 天</td>
+                      <td className="td font-medium">{totalHours.toFixed(1)} 小時</td>
+                      <td className="td">{hasOpenSession && <span className="tag t-abn">有未下班紀錄</span>}</td>
+                    </tr>
+                  ))}
+                  {rows.length === 0 && <tr><td className="td" colSpan={5} style={{ color: "#B3ADA4" }}>本月尚無資料</td></tr>}
+                </tbody>
+              </table>
+            </div>
+            <div className="text-xs mt-3" style={{ color: "#B3ADA4" }}>
+              總工時僅計算已完整打卡（有上班也有下班）的段次；若顯示「有未下班紀錄」，請先到「出勤紀錄」補登，避免核算時數短少。
+            </div>
+          </div>
+        );
+      })()}
 
       {tab === "audit" && (
         <div className="space-y-2">
