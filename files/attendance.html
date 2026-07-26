@@ -20,40 +20,54 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
 body{margin:0;}
-.ph-root{font-family:'Noto Sans TC',sans-serif;color:#1A0800;background:#FAF9F7;min-height:100vh;}
+/* Phase 品牌色：Brick Red 主色/CTA、Warm Cream 背景、Burnt Brown 主文字，
+   狀態標籤取自品牌五色（灰／咖啡／酒紅／玫瑰粉／琥珀黃） */
+.ph-root{font-family:'Noto Sans TC',sans-serif;color:#1A0800;background:#F5F2EE;min-height:100vh;}
 .f-serif{font-family:'Noto Serif TC',serif;}
 .ink{color:#1A0800}.brick{color:#B5402A}
-.hair{border-color:#E4E0DA}
+.hair{border-color:#E4DED2}
 .tag{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;}
-.t-off{color:#8B857C;border:1px solid #D8D3CB;background:#fff}
-.t-in{color:#2F6B43;background:#E9F1EB}
-.t-out{color:#9A6B1F;background:#F6EDDA}
-.t-done{color:#5A554E;background:#ECEAE6}
-.t-abn{color:#B5402A;background:#F7E7E2}
-.t-leave{color:#9C5050;background:#F6E9E9}
-.t-lpend{color:#9C5050;border:1px dashed #C47878;background:#fff}
-.t-mod{color:#7A5C1E;background:#F3ECD9;font-size:11px}
+.t-off{color:#8B857C;border:1px solid #D8D0C4;background:#fff}
+.t-in{color:#7B3A18;background:#F1E3D3}
+.t-out{color:#9C6404;background:#FBF0DA}
+.t-done{color:#6B6B6B;background:#ECEAE6}
+.t-abn{color:#7A1515;background:#F5E1E1}
+.t-leave{color:#A85C5C;background:#F7E9E9}
+.t-lpend{color:#A85C5C;border:1px dashed #C47878;background:#fff}
+.t-mod{color:#8A5A0A;background:#F3ECD9;font-size:11px}
 .t-seg{color:#5A554E;background:#F0EDE8;font-size:11px}
-.btn{padding:8px 18px;border-radius:8px;font-size:14px;font-weight:500;transition:opacity .15s;cursor:pointer}
-.btn:hover{opacity:.85}
-.btn-ink{background:#1A0800;color:#fff}
-.btn-line{border:1px solid #C9C4BC;color:#1A0800;background:#fff}
-.btn-brick{background:#B5402A;color:#fff}
+.btn{padding:8px 18px;border-radius:8px;font-size:14px;font-weight:500;transition:opacity .15s,transform .1s;cursor:pointer}
+.btn:hover{opacity:.88}
+.btn:active{transform:scale(.98)}
+.btn-ink{background:#B5402A;color:#fff}
+.btn-line{border:1px solid #C9BFAF;color:#1A0800;background:#fff}
+.btn-brick{background:#7A1515;color:#fff}
 .btn:disabled{opacity:.35;cursor:not-allowed}
-.card{background:#fff;border:1px solid #E4E0DA;border-radius:14px}
-.chip{padding:5px 14px;border-radius:999px;font-size:13px;cursor:pointer;border:1px solid #D8D3CB;color:#5A554E;background:#fff}
-.chip.on{background:#1A0800;color:#fff;border-color:#1A0800}
-.inp{border:1px solid #C9C4BC;border-radius:8px;padding:8px 12px;font-size:14px;background:#fff;width:100%}
-.inp:focus{outline:2px solid #1A0800;outline-offset:1px}
-.th{font-size:12px;color:#8B857C;font-weight:500;text-align:left;padding:8px 12px;border-bottom:1px solid #E4E0DA;white-space:nowrap}
-.td{font-size:13px;padding:10px 12px;border-bottom:1px solid #F0EDE8;white-space:nowrap;vertical-align:top}
+.card{background:#fff;border:1px solid #E4DED2;border-radius:14px;box-shadow:0 1px 3px rgba(26,8,0,.04)}
+.chip{padding:5px 14px;border-radius:999px;font-size:13px;cursor:pointer;border:1px solid #D8D0C4;color:#5A554E;background:#fff}
+.chip.on{background:#B5402A;color:#fff;border-color:#B5402A}
+.inp{border:1px solid #C9BFAF;border-radius:8px;padding:8px 12px;font-size:14px;background:#fff;width:100%}
+.inp:focus{outline:2px solid #B5402A;outline-offset:1px}
+.th{font-size:12px;color:#8B857C;font-weight:500;text-align:left;padding:8px 12px;border-bottom:1px solid #E4DED2;white-space:nowrap}
+.td{font-size:13px;padding:10px 12px;border-bottom:1px solid #F0EBE2;white-space:nowrap;vertical-align:top}
 .navbtn{display:block;width:100%;text-align:left;padding:10px 14px;border-radius:8px;font-size:14px;color:#5A554E}
-.navbtn.on{background:#1A0800;color:#fff}
-.navbtn:hover:not(.on){background:#EFEDE8}
+.navbtn.on{background:#B5402A;color:#fff}
+.navbtn:hover:not(.on){background:#F1E3D3}
 .dline{font-size:12px;color:#5A554E;line-height:1.9}
 .dline b{font-weight:500;color:#1A0800}
-.statcard{border:1px solid #E4E0DA;border-radius:12px;padding:16px;background:#fff}
-.statnum{font-size:28px;font-weight:600;font-family:'Noto Serif TC',serif}
+.statcard{border:1px solid #E4DED2;border-radius:12px;padding:16px;background:#fff}
+.statnum{font-size:28px;font-weight:600;font-family:'Noto Serif TC',serif;color:#7B3A18}
+.bottomnav{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid #E4DED2;display:flex;z-index:40;padding-bottom:env(safe-area-inset-bottom);}
+.bottomnav button{flex:1;padding:10px 2px 8px;font-size:11px;color:#8B857C;text-align:center;line-height:1.4;}
+.bottomnav button.on{color:#B5402A;font-weight:600;}
+.daycell{min-height:56px;}
+@media (max-width: 640px) {
+  .btn{padding:11px 16px;font-size:14px;}
+  .th,.td{padding:8px 6px;font-size:12px;}
+  .daycell{min-height:44px;padding:4px !important;}
+  .daycell .text-xs{font-size:10px;line-height:1.3;}
+  .clockdigits{font-size:32px !important;}
+}
 </style>
 </head>
 <body>
@@ -137,10 +151,16 @@ const mapRecord = (r) => ({
   lat: r.lat, lng: r.lng, accuracy: r.accuracy, address: r.address, ip: r.ip,
   modified: r.modified, history: r.history || [],
 });
+const OUTING_CATS = {
+  general: { label: "外出", tagKey: "seg" },
+  store_support: { label: "巡店支援", tagKey: "in" },
+  meeting: { label: "開會", tagKey: "out" },
+  other: { label: "其他", tagKey: "seg" },
+};
 const mapOuting = (r) => ({
   id: r.id, userId: r.employee_id, date: r.date,
   start: hm(r.start_time), expectedEnd: hm(r.expected_end), end: hm(r.end_time),
-  destination: r.destination, purpose: r.purpose,
+  destination: r.destination, purpose: r.purpose, category: r.category || "general",
   returnLat: r.return_lat, returnLng: r.return_lng, returnAccuracy: r.return_accuracy, returnAddress: r.return_address,
   returnedAt: r.returned_at,
 });
@@ -160,6 +180,7 @@ const mapRequest = (r) => ({
   field: r.field, value: r.value, reason: r.reason, status: r.status,
 });
 const mapAudit = (r) => ({ time: fmtStamp(r.created_at), actor: r.actor_label, action: r.action, target: r.target, detail: r.detail ?? "" });
+const mapDayOff = (r) => ({ id: r.id, userId: r.employee_id, date: r.date });
 const mapSnapshot = (r) => ({
   date: r.snapshot_date, user_id: r.employee_id, employee_name: r.employee_name, department: r.department,
   sessions: r.sessions || [], session_count: r.session_count,
@@ -309,13 +330,14 @@ function ClockCard({ me, myRec, myOutings, myLeavesToday, now, onClockIn, onCloc
   const [dest, setDest] = useState("");
   const [purpose, setPurpose] = useState("");
   const [expEnd, setExpEnd] = useState("");
+  const [cat, setCat] = useState("general");
   const segCount = myRec?.sessions?.length ?? 0;
   return (
     <div className="card p-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="text-xs" style={{ color: "#8B857C" }}>{today()}（{weekdayNames[now.getDay()]}）· {me.department}</div>
-          <div className="f-serif font-semibold" style={{ fontSize: 44, lineHeight: 1.2 }}>
+          <div className="f-serif font-semibold clockdigits" style={{ fontSize: 44, lineHeight: 1.2 }}>
             {pad(now.getHours())}:{pad(now.getMinutes())}<span className="text-xl" style={{ color: "#B3ADA4" }}>:{pad(now.getSeconds())}</span>
           </div>
         </div>
@@ -338,7 +360,8 @@ function ClockCard({ me, myRec, myOutings, myLeavesToday, now, onClockIn, onCloc
         ))}
         {myOutings.map((o, i) => (
           <div key={i}>
-            <b>外出</b>　{o.start} 出發
+            <Tag k={OUTING_CATS[o.category]?.tagKey ?? "seg"}>{OUTING_CATS[o.category]?.label ?? "外出"}</Tag>
+            　{o.start} 出發
             {o.expectedEnd && `　預計 ${o.expectedEnd} 返回`}
             {o.end ? `　實際 ${o.end} 返回` : "　（外出中）"}
             　{o.destination} · {o.purpose}
@@ -350,6 +373,14 @@ function ClockCard({ me, myRec, myOutings, myLeavesToday, now, onClockIn, onCloc
       {showOut && (
         <Modal title="外出登記" onClose={() => setShowOut(false)}>
           <div className="space-y-3">
+            <div>
+              <label className="text-xs" style={{ color: "#8B857C" }}>外出類型</label>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {Object.entries(OUTING_CATS).map(([k, v]) => (
+                  <button key={k} type="button" className={`chip ${cat === k ? "on" : ""}`} onClick={() => setCat(k)}>{v.label}</button>
+                ))}
+              </div>
+            </div>
             <div>
               <label className="text-xs" style={{ color: "#8B857C" }}>外出地點</label>
               <input className="inp mt-1" value={dest} onChange={(e) => setDest(e.target.value)} placeholder="例：展晟印刷、烘豆場" />
@@ -364,7 +395,7 @@ function ClockCard({ me, myRec, myOutings, myLeavesToday, now, onClockIn, onCloc
             </div>
             <div className="text-xs" style={{ color: "#8B857C" }}>外出地點與事由為公開資訊，全體同仁皆可查看。返回時系統將記錄實際返回時間與 GPS 定位。</div>
             <button className="btn btn-ink w-full" disabled={!dest || !purpose}
-              onClick={() => { onOutStart(dest, purpose, expEnd || null); setShowOut(false); setDest(""); setPurpose(""); setExpEnd(""); }}>
+              onClick={() => { onOutStart(dest, purpose, expEnd || null, cat); setShowOut(false); setDest(""); setPurpose(""); setExpEnd(""); setCat("general"); }}>
               開始外出
             </button>
           </div>
@@ -415,7 +446,7 @@ function TeamBoard({ view, lastSync, syncStatus }) {
           {depts.map((d) => <option key={d}>{d}</option>)}
         </select>
       </div>
-      <div className="overflow-x-auto">
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full">
           <thead><tr>
             <th className="th">員工</th><th className="th">單位</th><th className="th">狀態</th>
@@ -436,7 +467,7 @@ function TeamBoard({ view, lastSync, syncStatus }) {
                 <td className="td">
                   {r.outings.length === 0 && r.leaves.length === 0 && "—"}
                   {r.outings.map((o, i) => (
-                    <div key={`o${i}`}>外出 {o.start}{o.end ? `–${o.end}` : " 起"} · {o.destination} · {o.purpose}</div>
+                    <div key={`o${i}`}><Tag k={OUTING_CATS[o.category]?.tagKey ?? "seg"}>{OUTING_CATS[o.category]?.label ?? "外出"}</Tag> {o.start}{o.end ? `–${o.end}` : " 起"} · {o.destination} · {o.purpose}</div>
                   ))}
                   {r.leaves.map((l, i) => (
                     <div key={`l${i}`}>
@@ -451,6 +482,39 @@ function TeamBoard({ view, lastSync, syncStatus }) {
             {rows.length === 0 && <tr><td className="td" colSpan={7} style={{ color: "#B3ADA4" }}>沒有符合條件的員工</td></tr>}
           </tbody>
         </table>
+      </div>
+
+      <div className="md:hidden space-y-2">
+        {rows.map((r) => (
+          <div key={r.user_id} className="border hair rounded-lg p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <span className="font-medium text-sm">{r.employee_name}</span>
+                <span className="text-xs ml-2" style={{ color: "#8B857C" }}>{r.department}</span>
+              </div>
+              <StatusTag st={r.attendance_status} />
+            </div>
+            <div className="dline mt-1">
+              {(r.first_clock_in || r.last_clock_out) && (
+                <div>
+                  {r.first_clock_in ?? "—"}–{r.last_clock_out ?? "…"}
+                  {r.session_count > 1 && <span className="tag t-seg ml-1">{r.session_count} 段</span>}
+                  {r.has_been_modified && <span className="tag t-mod ml-1">已異動</span>}
+                </div>
+              )}
+              {r.outings.map((o, i) => (
+                <div key={`o${i}`}><Tag k={OUTING_CATS[o.category]?.tagKey ?? "seg"}>{OUTING_CATS[o.category]?.label ?? "外出"}</Tag> {o.start}{o.end ? `–${o.end}` : " 起"} · {o.destination} · {o.purpose}</div>
+              ))}
+              {r.leaves.map((l, i) => (
+                <div key={`l${i}`}>
+                  {l.type} {l.startTime}–{l.endTime}
+                  {l.startDate !== l.endDate && `（${l.startDate}～${l.endDate}）`}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+        {rows.length === 0 && <div className="text-sm" style={{ color: "#B3ADA4" }}>沒有符合條件的員工</div>}
       </div>
     </div>
   );
@@ -521,7 +585,7 @@ function CalendarView({ me, users, leaves, leaveTypes }) {
             const showable = !isFutureNoLeave || ls.length > 0;
             return (
               <button key={i} onClick={() => showable && setOpenDay(ds)}
-                className="text-left rounded-lg p-2 border hair bg-white hover:opacity-80" style={{ minHeight: 70, opacity: showable ? 1 : 0.4 }}>
+                className="text-left rounded-lg p-2 border hair bg-white hover:opacity-80 daycell" style={{ minHeight: 70, opacity: showable ? 1 : 0.4 }}>
                 <div className="text-xs font-medium">{d}</div>
                 {showable && (
                   <div className="mt-1 space-y-1">
@@ -547,12 +611,12 @@ function CalendarView({ me, users, leaves, leaveTypes }) {
           const showable = !isFutureNoLeave || stats.leave > 0;
           return (
             <button key={i} onClick={() => showable && setOpenDay(ds)}
-              className="text-left rounded-lg p-2 border hair bg-white hover:opacity-80" style={{ minHeight: 70, opacity: showable ? 1 : 0.4 }}>
+              className="text-left rounded-lg p-2 border hair bg-white hover:opacity-80 daycell" style={{ minHeight: 70, opacity: showable ? 1 : 0.4 }}>
               <div className="text-xs font-medium">{d}</div>
               {showable && (
                 <div className="mt-1 text-xs leading-5" style={{ color: "#5A554E" }}>
                   {!isFutureNoLeave && <>班 {stats.in + stats.done} · 外 {stats.out}</>}
-                  {stats.leave > 0 && <div style={{ color: "#9C5050" }}>假 {stats.leave}</div>}
+                  {stats.leave > 0 && <div style={{ color: "#A85C5C" }}>假 {stats.leave}</div>}
                   {stats.abn > 0 && <div className="brick">異常 {stats.abn}</div>}
                 </div>
               )}
@@ -587,7 +651,7 @@ function CalendarView({ me, users, leaves, leaveTypes }) {
                       <td className="td">{sessions.length ? sessionHours(sessions) : "—"}</td>
                       <td className="td">
                         {os.length === 0 && "—"}
-                        {os.map((o, i) => <div key={i}>{o.start}–{o.end ?? "…"} · {o.destination} · {o.purpose}</div>)}
+                        {os.map((o, i) => <div key={i}><Tag k={OUTING_CATS[o.category]?.tagKey ?? "seg"}>{OUTING_CATS[o.category]?.label ?? "外出"}</Tag> {o.start}–{o.end ?? "…"} · {o.destination} · {o.purpose}</div>)}
                       </td>
                       <td className="td">
                         {ls.length === 0 && "—"}
@@ -611,6 +675,80 @@ function CalendarView({ me, users, leaves, leaveTypes }) {
           <div className="text-xs mt-3" style={{ color: "#B3ADA4" }}>請假事由僅限本人與管理員查看，其他同仁僅顯示假別與時段。</div>
         </Modal>
       )}
+    </div>
+  );
+}
+
+/* ---------- 排休（月休表，自助、不需審核，同一天可多人排休） ---------- */
+function DayOffPage({ me, users, dayOffs, onToggle }) {
+  const nowD = new Date();
+  const [ym, setYm] = useState({ y: nowD.getFullYear(), m: nowD.getMonth() });
+  const staff = users.filter((u) => u.active && u.role !== "admin");
+  const canEditOthers = me.role === "admin";
+  const [pick, setPick] = useState(canEditOthers ? staff[0]?.id : me.id);
+  const targetId = canEditOthers ? pick : me.id;
+  const targetDept = users.find((u) => u.id === targetId)?.department;
+
+  const first = new Date(ym.y, ym.m, 1);
+  const daysInMonth = new Date(ym.y, ym.m + 1, 0).getDate();
+  const lead = first.getDay();
+  const cells = [...Array(lead).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)];
+  const dstr = (d) => `${ym.y}-${pad(ym.m + 1)}-${pad(d)}`;
+  const move = (k) => setYm(({ y, m }) => { const d = new Date(y, m + k, 1); return { y: d.getFullYear(), m: d.getMonth() }; });
+
+  const offsOn = (ds) => dayOffs.filter((o) => o.date === ds);
+  const isTargetOff = (ds) => offsOn(ds).some((o) => o.userId === targetId);
+  const sameDeptNames = (ds) => offsOn(ds)
+    .map((o) => users.find((u) => u.id === o.userId))
+    .filter((u) => u && u.department === targetDept)
+    .map((u) => u.name);
+
+  return (
+    <div className="card p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+        <h2 className="f-serif text-lg font-semibold">排休</h2>
+        {canEditOthers && (
+          <select className="inp" style={{ width: "auto", padding: "6px 10px", fontSize: 13 }} value={pick} onChange={(e) => setPick(e.target.value)}>
+            {staff.map((u) => <option key={u.id} value={u.id}>{u.name}（{u.department}）</option>)}
+          </select>
+        )}
+      </div>
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <button className="btn btn-line" onClick={() => move(-1)}>‹</button>
+        <div className="f-serif font-semibold">{ym.y} 年 {ym.m + 1} 月</div>
+        <button className="btn btn-line" onClick={() => move(1)}>›</button>
+      </div>
+      <div className="grid grid-cols-7 gap-1 text-center text-xs mb-1" style={{ color: "#8B857C" }}>
+        {weekdayNames.map((w) => <div key={w} className="py-1">{w}</div>)}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((d, i) => {
+          if (!d) return <div key={i} />;
+          const ds = dstr(d);
+          const isPast = ds < today();
+          const mine = isTargetOff(ds);
+          const names = sameDeptNames(ds);
+          return (
+            <button key={i} disabled={isPast} onClick={() => onToggle(targetId, ds, mine)}
+              className="text-left rounded-lg p-2 border hover:opacity-80 daycell"
+              style={{
+                minHeight: 74, opacity: isPast ? 0.4 : 1,
+                background: mine ? "#F6E9E9" : "#fff", borderColor: mine ? "#C47878" : "#E4E0DA",
+              }}>
+              <div className="text-xs font-medium">{d}</div>
+              {mine && <div className="mt-1"><Tag k="leave">已排休</Tag></div>}
+              {names.length > 0 && (
+                <div className="text-xs mt-1" style={{ color: "#8B857C" }}>
+                  {names.slice(0, 3).join("、")}{names.length > 3 ? ` +${names.length - 3}` : ""}
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      <div className="text-xs mt-4" style={{ color: "#B3ADA4" }}>
+        點日期即可排休／取消排休，不需要審核，排定後立即生效，同一天可以有多人排休、沒有人數限制。日期格子裡顯示的是同單位同仁的排休狀況，方便互相協調班表。
+      </div>
     </div>
   );
 }
@@ -679,7 +817,7 @@ function LeavePage({ me, leaves, leaveTypes, onApply, onWithdraw, onAddAttachmen
                   </label>
                 )}
                 {l.status === "pending" && (
-                  <button className="text-xs underline" style={{ color: "#B5402A" }} onClick={() => onWithdraw(l)}>撤回申請</button>
+                  <button className="text-xs underline" style={{ color: "#7A1515" }} onClick={() => onWithdraw(l)}>撤回申請</button>
                 )}
               </div>
             </div>
@@ -758,7 +896,7 @@ function LeavePage({ me, leaves, leaveTypes, onApply, onWithdraw, onAddAttachmen
                   {f.attachments.map((a, i) => (
                     <div key={i} className="flex items-center justify-between text-xs border hair rounded-lg px-3 py-2">
                       <span>{a.name}（{Math.max(1, Math.round(a.size / 1024))} KB）</span>
-                      <button className="underline" style={{ color: "#B5402A" }}
+                      <button className="underline" style={{ color: "#7A1515" }}
                         onClick={() => setF((prev) => ({ ...prev, attachments: prev.attachments.filter((_, j) => j !== i) }))}>移除</button>
                     </div>
                   ))}
@@ -821,7 +959,7 @@ function MyAttendance({ me, records, outings, onCorrection, onChangePw }) {
                 ))}
                 {os.map((o, i) => (
                   <div key={`o${i}`}>
-                    <b>外出</b>　{o.start} 出發
+                    <Tag k={OUTING_CATS[o.category]?.tagKey ?? "seg"}>{OUTING_CATS[o.category]?.label ?? "外出"}</Tag>　{o.start} 出發
                     {o.expectedEnd && `　預計 ${o.expectedEnd}`}
                     {o.end ? `　實際 ${o.end} 返回（${o.returnAddress ?? "—"}）` : "　（外出中）"}
                     　{o.destination} · {o.purpose}
@@ -1024,7 +1162,7 @@ function AdminPanel({ me, users, departments, records, outings, leaves, leaveTyp
                       <td className="td">
                         <button className="text-xs underline mr-3" style={{ color: "#8B857C" }} onClick={() => setLtModal({ mode: "edit", data: { ...t } })}>編輯</button>
                         <button className="text-xs underline mr-3" style={{ color: "#8B857C" }} onClick={() => actions.toggleLeaveType(t.id)}>{t.status === "active" ? "停用" : "啟用"}</button>
-                        <button className="text-xs underline" style={{ color: inUse ? "#B3ADA4" : "#B5402A" }}
+                        <button className="text-xs underline" style={{ color: inUse ? "#B3ADA4" : "#7A1515" }}
                           onClick={() => actions.deleteLeaveType(t.id, inUse)}>刪除</button>
                       </td>
                     </tr>
@@ -1056,7 +1194,7 @@ function AdminPanel({ me, users, departments, records, outings, leaves, leaveTyp
                       <td className="td font-medium">{u.name}</td>
                       <td className="td" style={{ color: "#8B857C" }}>
                         {u.employeeCode || "—"}
-                        {!u.authUserId && <div className="text-xs" style={{ color: "#B5402A" }}>尚未建立登入帳號</div>}
+                        {!u.authUserId && <div className="text-xs" style={{ color: "#7A1515" }}>尚未建立登入帳號</div>}
                       </td>
                       <td className="td">{u.department}</td>
                       <td className="td">{u.active ? <Tag k="in">啟用中</Tag> : <Tag k="abn">已停用</Tag>}</td>
@@ -1065,9 +1203,9 @@ function AdminPanel({ me, users, departments, records, outings, leaves, leaveTyp
                         <button className="text-xs underline mr-3" style={{ color: "#8B857C" }}
                           onClick={() => setStaffModal({ mode: "edit", data: { id: u.id, name: u.name, employeeCode: u.employeeCode, departmentId: u.departmentId } })}>編輯</button>
                         <button className="text-xs underline mr-3" style={{ color: "#8B857C" }} onClick={() => actions.resetPw(u.id)}>重設密碼</button>
-                        <button className="text-xs underline mr-3" style={{ color: u.active ? "#B5402A" : "#2F6B43" }}
+                        <button className="text-xs underline mr-3" style={{ color: u.active ? "#7A1515" : "#7B3A18" }}
                           onClick={() => actions.toggleActive(u.id)}>{u.active ? "停用" : "啟用"}</button>
-                        <button className="text-xs underline" style={{ color: "#B5402A" }}
+                        <button className="text-xs underline" style={{ color: "#7A1515" }}
                           onClick={() => actions.deleteStaff(u.id, hasRec)}>刪除</button>
                       </td>
                     </tr>
@@ -1106,7 +1244,7 @@ function AdminPanel({ me, users, departments, records, outings, leaves, leaveTyp
                       <td className="td">
                         <button className="text-xs underline mr-3" style={{ color: "#8B857C" }} onClick={() => setDeptModal({ mode: "edit", data: { ...d } })}>編輯</button>
                         <button className="text-xs underline mr-3" style={{ color: "#8B857C" }} onClick={() => actions.toggleDept(d.id, cnt)}>{d.status === "active" ? "停用" : "啟用"}</button>
-                        <button className="text-xs underline" style={{ color: cnt > 0 ? "#B3ADA4" : "#B5402A" }}
+                        <button className="text-xs underline" style={{ color: cnt > 0 ? "#B3ADA4" : "#7A1515" }}
                           onClick={() => actions.deleteDept(d.id, cnt)}>刪除</button>
                       </td>
                     </tr>
@@ -1200,7 +1338,9 @@ function AdminPanel({ me, users, departments, records, outings, leaves, leaveTyp
                   <td className="td">{o.start}</td>
                   <td className="td">{o.expectedEnd ?? "—"}</td>
                   <td className="td">{o.end ?? <Tag k="out">外出中</Tag>}</td>
-                  <td className="td">{o.destination} · {o.purpose}</td>
+                  <td className="td">
+                    <Tag k={OUTING_CATS[o.category]?.tagKey ?? "seg"}>{OUTING_CATS[o.category]?.label ?? "外出"}</Tag> {o.destination} · {o.purpose}
+                  </td>
                   <td className="td" style={{ color: "#8B857C" }}>
                     {o.end ? <>{o.returnLat}, {o.returnLng}（±{o.returnAccuracy}m）</> : "—"}
                   </td>
@@ -1377,6 +1517,7 @@ function PhaseAttendance() {
   const [leaves, setLeaves] = useState([]);
   const [requests, setRequests] = useState([]);
   const [audit, setAudit] = useState([]);
+  const [dayOffs, setDayOffs] = useState([]);
   const [teamToday, setTeamToday] = useState([]);
   const [now, setNow] = useState(new Date());
   const [lastSync, setLastSync] = useState("");
@@ -1404,7 +1545,7 @@ function PhaseAttendance() {
 
   const loadAll = useCallback(async () => {
     const ds = today();
-    const [depR, ltR, empR, recR, outR, lvR, reqR, audR, teamR] = await Promise.all([
+    const [depR, ltR, empR, recR, outR, lvR, reqR, audR, doR, teamR] = await Promise.all([
       sb.from("departments").select("*").order("name"),
       sb.from("leave_types").select("*").order("created_at"),
       sb.from("employees").select("*, departments(name)").order("name"),
@@ -1413,6 +1554,7 @@ function PhaseAttendance() {
       sb.from("leaves").select("*, approver:employees!leaves_approved_by_fkey(name,email), rejecter:employees!leaves_rejected_by_fkey(name,email)").order("applied_at", { ascending: false }),
       sb.from("correction_requests").select("*").order("created_at", { ascending: false }),
       sb.from("audit_log").select("*").order("created_at", { ascending: false }).limit(300),
+      sb.from("day_off_schedule").select("*"),
       sb.rpc("team_snapshot", { p_start: ds, p_end: ds }),
     ]);
     if (depR.data) setDepartments(depR.data.map(mapDept));
@@ -1423,6 +1565,7 @@ function PhaseAttendance() {
     if (lvR.data) setLeaves(lvR.data.map(mapLeave));
     if (reqR.data) setRequests(reqR.data.map(mapRequest));
     if (audR.data) setAudit(audR.data.map(mapAudit));
+    if (doR.data) setDayOffs(doR.data.map(mapDayOff));
     if (teamR.data) setTeamToday(teamR.data.map(buildViewRow));
     setLastSync(fmtTime(new Date()));
   }, []);
@@ -1438,7 +1581,7 @@ function PhaseAttendance() {
   useEffect(() => {
     if (!me) return;
     const channel = sb.channel("phase-attendance-sync");
-    ["attendance_records", "outings", "leaves", "correction_requests", "employees", "departments", "leave_types"].forEach((t) => {
+    ["attendance_records", "outings", "leaves", "correction_requests", "employees", "departments", "leave_types", "day_off_schedule"].forEach((t) => {
       channel.on("postgres_changes", { event: "*", schema: "public", table: t }, scheduleReload);
     });
     channel.subscribe((status) => setSyncStatus(status));
@@ -1491,10 +1634,10 @@ function PhaseAttendance() {
     setToast("下班打卡完成，辛苦了。如需再次上班可重新打卡");
     loadAll();
   };
-  const outStart = async (destination, purpose, expectedEnd) => {
+  const outStart = async (destination, purpose, expectedEnd, category) => {
     const { error } = await sb.from("outings").insert({
       employee_id: me.id, date: ds, start_time: fmtTime(new Date()),
-      expected_end: expectedEnd, destination, purpose,
+      expected_end: expectedEnd, destination, purpose, category: category || "general",
     });
     if (error) { setToast("外出登記失敗：" + error.message); return; }
     setToast("外出登記完成");
@@ -1554,6 +1697,18 @@ function PhaseAttendance() {
   const changePw = async (npw) => {
     const { error } = await sb.auth.updateUser({ password: npw });
     setToast(error ? "密碼更新失敗：" + error.message : "密碼已更新");
+  };
+  const toggleDayOff = async (employeeId, ds, currentlyOff) => {
+    if (currentlyOff) {
+      const row = dayOffs.find((o) => o.userId === employeeId && o.date === ds);
+      if (!row) return;
+      const { error } = await sb.from("day_off_schedule").delete().eq("id", row.id);
+      if (error) { setToast("取消排休失敗：" + error.message); return; }
+    } else {
+      const { error } = await sb.from("day_off_schedule").insert({ employee_id: employeeId, date: ds });
+      if (error) { setToast("排休失敗：" + error.message); return; }
+    }
+    loadAll();
   };
 
   /* --- 管理員操作 --- */
@@ -1730,13 +1885,13 @@ function PhaseAttendance() {
   if (!me) return null;
 
   const navs = me.role === "admin"
-    ? [["home", "出勤總覽"], ["calendar", "出勤行事曆"], ["admin", "管理後台"]]
-    : [["home", "出勤總覽"], ["calendar", "出勤行事曆"], ["mine", "我的出勤"], ["leave", "請假申請"]];
+    ? [["home", "出勤總覽"], ["calendar", "出勤行事曆"], ["dayoff", "排休"], ["admin", "管理後台"]]
+    : [["home", "出勤總覽"], ["calendar", "出勤行事曆"], ["mine", "我的出勤"], ["leave", "請假申請"], ["dayoff", "排休"]];
 
   return (
     <div className="ph-root">
       <div className="max-w-6xl mx-auto px-4 py-6 lg:flex lg:gap-8">
-        <aside className="lg:w-52 mb-6 lg:mb-0 shrink-0">
+        <aside className="hidden lg:block lg:w-52 mb-6 lg:mb-0 shrink-0">
           <div className="mb-6">
             <div className="f-serif text-2xl font-bold tracking-widest">PHASE</div>
             <div className="text-xs" style={{ color: "#B3ADA4", letterSpacing: ".25em" }}>ATTENDANCE</div>
@@ -1744,7 +1899,7 @@ function PhaseAttendance() {
               {syncStatus === "SUBSCRIBED" ? "● 即時同步中" : "○ 連線中"}
             </div>
           </div>
-          <nav className="flex lg:block gap-2 overflow-x-auto">
+          <nav className="hidden lg:block">
             {navs.map(([k, l]) => (
               <button key={k} className={`navbtn ${page === k ? "on" : ""}`} style={{ width: "auto", minWidth: "max-content" }} onClick={() => setPage(k)}>{l}</button>
             ))}
@@ -1756,9 +1911,12 @@ function PhaseAttendance() {
           </div>
         </aside>
 
-        <main className="flex-1 space-y-6 min-w-0">
+        <main className="flex-1 space-y-6 min-w-0 pb-20 lg:pb-0">
           <div className="flex lg:hidden items-center justify-between text-sm">
-            <div>{me.name} · {me.department}</div>
+            <div>
+              <span className="f-serif font-bold tracking-widest">PHASE</span>
+              <span className="ml-2" style={{ color: "#8B857C" }}>{me.name} · {me.department}</span>
+            </div>
             <button className="text-xs underline" style={{ color: "#8B857C" }} onClick={() => sb.auth.signOut()}>登出</button>
           </div>
 
@@ -1780,6 +1938,9 @@ function PhaseAttendance() {
           {page === "leave" && me.role !== "admin" && (
             <LeavePage me={me} leaves={leaves} leaveTypes={leaveTypes} onApply={applyLeave} onWithdraw={withdrawLeave} onAddAttachment={addLeaveAttachment} />
           )}
+          {page === "dayoff" && (
+            <DayOffPage me={me} users={employees} dayOffs={dayOffs} onToggle={toggleDayOff} />
+          )}
           {page === "admin" && me.role === "admin" && (
             <AdminPanel me={me} users={employees} departments={departments} records={records} outings={outings}
               leaves={leaves} leaveTypes={leaveTypes} requests={requests} audit={audit} actions={adminActions} />
@@ -1787,8 +1948,14 @@ function PhaseAttendance() {
         </main>
       </div>
 
+      <nav className="bottomnav lg:hidden">
+        {navs.map(([k, l]) => (
+          <button key={k} className={page === k ? "on" : ""} onClick={() => setPage(k)}>{l}</button>
+        ))}
+      </nav>
+
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 px-5 py-3 rounded-full text-sm text-white z-50" style={{ background: "#1A0800" }}>
+        <div className="fixed bottom-20 lg:bottom-6 left-1/2 -translate-x-1/2 px-5 py-3 rounded-full text-sm text-white z-50" style={{ background: "#1A0800" }}>
           {toast}
         </div>
       )}
