@@ -1217,16 +1217,16 @@ function AdminPanel({ me, users, departments, records, outings, leaves, leaveTyp
       {tab === "staff" && (
         <div>
           <div className="flex justify-end mb-3">
-            <button className="btn btn-ink" onClick={() => setStaffModal({ mode: "add", data: { name: "", employeeCode: "", departmentId: activeDepts[0]?.id ?? "" } })}>新增員工</button>
+            <button className="btn btn-ink" onClick={() => setStaffModal({ mode: "add", data: { name: "", employeeCode: "", departmentId: activeDepts[0]?.id ?? "", role: "staff" } })}>新增員工</button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead><tr>
-                <th className="th">姓名</th><th className="th">員工代碼</th><th className="th">隸屬單位</th><th className="th">狀態</th>
+                <th className="th">姓名</th><th className="th">員工代碼</th><th className="th">角色</th><th className="th">隸屬單位</th><th className="th">狀態</th>
                 <th className="th">登入失敗</th><th className="th">操作</th>
               </tr></thead>
               <tbody>
-                {staff.map((u) => {
+                {users.map((u) => {
                   const hasRec = hasAnyRecord(u.id);
                   return (
                     <tr key={u.id}>
@@ -1235,12 +1235,13 @@ function AdminPanel({ me, users, departments, records, outings, leaves, leaveTyp
                         {u.employeeCode || "—"}
                         {!u.authUserId && <div className="text-xs" style={{ color: "#7A1515" }}>尚未建立登入帳號</div>}
                       </td>
+                      <td className="td">{u.role === "admin" ? <Tag k="in">管理員</Tag> : <Tag k="seg">員工</Tag>}</td>
                       <td className="td">{u.department}</td>
                       <td className="td">{u.active ? <Tag k="in">啟用中</Tag> : <Tag k="abn">已停用</Tag>}</td>
                       <td className="td">{u.failedLogins} 次</td>
                       <td className="td">
                         <button className="text-xs underline mr-3" style={{ color: "#8B857C" }}
-                          onClick={() => setStaffModal({ mode: "edit", data: { id: u.id, name: u.name, employeeCode: u.employeeCode, departmentId: u.departmentId } })}>編輯</button>
+                          onClick={() => setStaffModal({ mode: "edit", data: { id: u.id, name: u.name, employeeCode: u.employeeCode, departmentId: u.departmentId, role: u.role } })}>編輯</button>
                         <button className="text-xs underline mr-3" style={{ color: "#8B857C" }} onClick={() => actions.resetPw(u.id)}>重設密碼</button>
                         <button className="text-xs underline mr-3" style={{ color: u.active ? "#7A1515" : "#7B3A18" }}
                           onClick={() => actions.toggleActive(u.id)}>{u.active ? "停用" : "啟用"}</button>
@@ -1495,6 +1496,15 @@ function AdminPanel({ me, users, departments, records, outings, leaves, leaveTyp
               onChange={(e) => setStaffModal((m) => ({ ...m, data: { ...m.data, departmentId: e.target.value } }))}>
               {activeDepts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
+            <div>
+              <label className="text-xs" style={{ color: "#8B857C" }}>角色</label>
+              <div className="flex gap-2 mt-1">
+                <button type="button" className={`chip ${staffModal.data.role === "staff" ? "on" : ""}`}
+                  onClick={() => setStaffModal((m) => ({ ...m, data: { ...m.data, role: "staff" } }))}>員工</button>
+                <button type="button" className={`chip ${staffModal.data.role === "admin" ? "on" : ""}`}
+                  onClick={() => setStaffModal((m) => ({ ...m, data: { ...m.data, role: "admin" } }))}>管理員</button>
+              </div>
+            </div>
             {staffModal.mode === "add" && <div className="text-xs" style={{ color: "#8B857C" }}>建立後會自動產生登入帳號與一組臨時密碼（畫面上會顯示一次，請直接複製告訴本人）。</div>}
             <button className="btn btn-ink w-full" disabled={!staffModal.data.name || !staffModal.data.employeeCode}
               onClick={() => {
@@ -1898,17 +1908,17 @@ function PhaseAttendance() {
       if (signUpError) { setToast("建立登入帳號失敗：" + signUpError); return; }
       const { error } = await sb.from("employees").insert({
         name: d.name, email: syntheticEmail, employee_code: d.employeeCode,
-        department_id: d.departmentId, role: "staff", active: true, auth_user_id: authUserId,
+        department_id: d.departmentId, role: d.role || "staff", active: true, auth_user_id: authUserId,
       });
       if (error) { setToast("建立員工資料失敗：" + error.message); return; }
-      await log("新增員工帳號", `${d.name}（${d.employeeCode}）`, "已自動建立登入帳號", `${me.name}（管理員）`);
-      window.alert(`已建立 ${d.name} 的帳號。\n\n員工代碼：${d.employeeCode}\n臨時密碼：${tempPassword}\n\n請把這組資訊告訴本人，登入後建議到「我的出勤」修改密碼。這組密碼只會顯示這一次，請先複製起來。`);
-      setToast("員工帳號已建立");
+      await log(d.role === "admin" ? "新增管理員帳號" : "新增員工帳號", `${d.name}（${d.employeeCode}）`, "已自動建立登入帳號", `${me.name}（管理員）`);
+      window.alert(`已建立 ${d.name} 的帳號（角色：${d.role === "admin" ? "管理員" : "員工"}）。\n\n員工代碼：${d.employeeCode}\n臨時密碼：${tempPassword}\n\n請把這組資訊告訴本人，登入後建議到「我的出勤」修改密碼。這組密碼只會顯示這一次，請先複製起來。`);
+      setToast("帳號已建立");
       loadAll();
     },
     editStaff: async (d) => {
-      await sb.from("employees").update({ name: d.name, employee_code: d.employeeCode, department_id: d.departmentId }).eq("id", d.id);
-      await log("編輯員工資料", d.name, `代碼/單位：${d.employeeCode}／${d.departmentId}`, `${me.name}（管理員）`);
+      await sb.from("employees").update({ name: d.name, employee_code: d.employeeCode, department_id: d.departmentId, role: d.role }).eq("id", d.id);
+      await log("編輯員工資料", d.name, `代碼/單位/角色：${d.employeeCode}／${d.departmentId}／${d.role}`, `${me.name}（管理員）`);
       loadAll();
     },
     deleteStaff: async (uid, hasRec) => {
