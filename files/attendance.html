@@ -64,14 +64,14 @@ body{margin:0;}
 @media (max-width: 640px) {
   .btn{padding:11px 16px;font-size:14px;}
   .th,.td{padding:8px 6px;font-size:12px;}
-  .daycell{min-height:40px;padding:3px !important;}
+  .daycell{min-height:40px;padding:2px !important;}
   .daycell .text-xs{font-size:9px;line-height:1.2;}
   .daycell .tag{
     font-size:9px;padding:1px 3px;white-space:normal;text-align:center;
     line-height:1.15;max-width:100%;display:inline-block;
   }
   .clockdigits{font-size:32px !important;}
-  .cal-card{padding:12px !important;}
+  .cal-card{padding:8px !important;border-radius:8px !important;}
   .cal-grid{gap:2px !important;}
 }
 </style>
@@ -631,6 +631,7 @@ function CalendarView({ me, users, leaves, leaveTypes, dayOffs }) {
           });
           const namesLine = (names) => names.slice(0, 3).join("、") + (names.length > 3 ? ` +${names.length - 3}` : "");
           const showable = !isFutureNoLeave || leaveNames.length > 0 || dayOffNames.length > 0;
+          const hasDayOff = dayOffNames.length > 0;
           return (
             <button key={i} onClick={() => showable && setOpenDay(ds)}
               className="text-left rounded-lg p-2 border hair bg-white hover:opacity-80 daycell" style={{ minHeight: 70, opacity: showable ? 1 : 0.4 }}>
@@ -638,9 +639,17 @@ function CalendarView({ me, users, leaves, leaveTypes, dayOffs }) {
               {showable && (
                 <div className="mt-1 text-xs leading-5" style={{ color: "#5A554E" }}>
                   {!isFutureNoLeave && <>班 {stats.in + stats.done}</>}
-                  {outNames.length > 0 && <div>外：{namesLine(outNames)}</div>}
+                  {outNames.length > 0 && (
+                    <div style={{ color: "#9C6404", background: "rgba(212,135,10,.16)", borderRadius: 4, padding: "0 3px", display: "inline-block" }}>
+                      {namesLine(outNames)}
+                    </div>
+                  )}
                   {leaveNames.length > 0 && <div style={{ color: "#A85C5C" }}>假：{namesLine(leaveNames)}</div>}
-                  {dayOffNames.length > 0 && <div style={{ color: "#A85C5C" }}>休：{namesLine(dayOffNames)}</div>}
+                  {hasDayOff && (
+                    <div style={{ color: "#A85C5C", background: "rgba(196,120,120,.16)", borderRadius: 4, padding: "0 3px", display: "inline-block" }}>
+                      {namesLine(dayOffNames)}
+                    </div>
+                  )}
                   {abnNames.length > 0 && <div className="brick">異常：{namesLine(abnNames)}</div>}
                 </div>
               )}
@@ -2014,7 +2023,7 @@ function PhaseAttendance() {
 
   return (
     <div className="ph-root">
-      <div className="max-w-6xl mx-auto px-4 py-6 lg:flex lg:gap-8">
+      <div className="max-w-6xl mx-auto px-2 sm:px-4 py-6 lg:flex lg:gap-8">
         <aside className="hidden lg:block lg:w-52 mb-6 lg:mb-0 shrink-0">
           <div className="mb-6">
             <div className="f-serif text-2xl font-bold tracking-widest">PHASE</div>
