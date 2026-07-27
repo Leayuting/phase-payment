@@ -76,6 +76,9 @@ td{padding:13px 16px}
 .pill.g{background:#eaf0e8;border-color:#4E5747;color:#4E5747}
 .pill.gr{background:#F6F2EB;border-color:#D9D5CF;color:#5E6770}
 .pill.re{background:#f8ecea;border-color:#b05040;color:#8a3a2a}
+.attach-row{display:flex;gap:4px;flex-wrap:wrap}
+.thumb{width:36px;height:36px;border-radius:4px;object-fit:cover;border:1px solid #D9D5CF;cursor:pointer}
+.attach-link{font-size:16px;text-decoration:none}
 @keyframes flash-green{0%{background:#c8e6c9}100%{background:transparent}}
 .flash{animation:flash-green 1s ease-out}
 .btn-edit{background:#F6F2EB;border:1px solid #D9D5CF;border-radius:5px;padding:5px 12px;cursor:pointer;color:#5E6770;font-size:11px;font-family:inherit}
@@ -165,13 +168,13 @@ label{font-size:10px;color:#5E6770;letter-spacing:1.5px;text-transform:uppercase
       <th class="ns">門店</th>
       <th onclick="setSort('date')">匯款日期 <span id="sa-date">▼</span></th>
       <th onclick="setSort('amount')">金額 <span id="sa-amount" style="opacity:.4">▲</span></th>
-      <th class="ns">匯款狀態</th><th class="ns">發票狀態</th><th class="ns">發票日期</th><th class="ns">備註</th><th class="ns">操作</th>
+      <th class="ns">匯款狀態</th><th class="ns">發票狀態</th><th class="ns">發票日期</th><th class="ns">備註</th><th class="ns">附件</th><th class="ns">操作</th>
     </tr></thead>
     <tbody id="tb-active"></tbody>
   </table></div></div>
   <div class="section-header"><span class="section-title" style="color:#4E5747">已完成</span><span class="section-badge sb-done" id="b-done">0</span><div class="section-line"></div><button class="section-toggle" id="btn-done" onclick="toggleDone()">收起 ▲</button></div>
   <div id="done-sec"><div class="table-wrap done-table"><div class="table-scroll"><table>
-    <thead><tr><th class="ns">廠商名稱</th><th class="ns">門店</th><th class="ns">匯款日期</th><th class="ns">金額</th><th class="ns">匯款狀態</th><th class="ns">發票狀態</th><th class="ns">發票日期</th><th class="ns">備註</th><th class="ns">操作</th></tr></thead>
+    <thead><tr><th class="ns">廠商名稱</th><th class="ns">門店</th><th class="ns">匯款日期</th><th class="ns">金額</th><th class="ns">匯款狀態</th><th class="ns">發票狀態</th><th class="ns">發票日期</th><th class="ns">備註</th><th class="ns">附件</th><th class="ns">操作</th></tr></thead>
     <tbody id="tb-done"></tbody>
   </table></div></div></div>
 </div>
@@ -361,6 +364,15 @@ function sortList(list){
   });
 }
 
+function attachHtml(urls){
+  if(!urls||!urls.length) return '&#8212;';
+  var isImg=function(u){return /\.(png|jpe?g|gif|webp)$/i.test(u);};
+  return '<div class="attach-row">'+urls.map(function(u){
+    if(isImg(u)) return '<a href="'+u+'" target="_blank"><img class="thumb" src="'+u+'"></a>';
+    return '<a class="attach-link" href="'+u+'" target="_blank" title="查看附件">📄</a>';
+  }).join('')+'</div>';
+}
+
 function rowHtml(r){
   var pc=r.payment_done?'g':'gr';
   var pt=r.payment_done?'&#10003; 已匯款':'&#9675; 未匯款';
@@ -380,6 +392,7 @@ function rowHtml(r){
   var invLinks=invFiles.map(function(u,i){return ' <a href="'+u+'" target="_blank" title="查看發票檔案'+(invFiles.length>1?' '+(i+1):'')+'">📎</a>';}).join('');
   row+='<td class="td-d">'+(r.invoice_date||'&#8212;')+invLinks+'</td>';
   row+='<td class="td-n">'+notes+'</td>';
+  row+='<td>'+attachHtml(r.attachment_urls)+'</td>';
   row+='<td><div class="actions"><button class="btn-edit" onclick="openEdit('+r.id+')">編輯</button> <button class="btn-del" onclick="openDel('+r.id+')">刪除</button></div></td>';
   row+='</tr>';
   return row;
