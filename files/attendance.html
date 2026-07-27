@@ -619,23 +619,29 @@ function CalendarView({ me, users, leaves, leaveTypes, dayOffs }) {
             );
           }
           const stats = { in: 0, off: 0, out: 0, done: 0, abn: 0, leave: 0, dayOff: 0 };
+          const leaveNames = [], dayOffNames = [], outNames = [], abnNames = [];
           staff.forEach((u) => {
             const row = rowsFor(u.id, ds)[0];
             const st = row?.attendance_status ?? { key: "off" };
             stats[st.key] = (stats[st.key] ?? 0) + 1;
-            if (isDayOff(u.id, ds)) stats.dayOff += 1;
+            if (row?.leaves?.length > 0) leaveNames.push(u.name);
+            if (isDayOff(u.id, ds)) { stats.dayOff += 1; dayOffNames.push(u.name); }
+            if (row?.outings?.some((o) => !o.end)) outNames.push(u.name);
+            if (st.key === "abn") abnNames.push(u.name);
           });
-          const showable = !isFutureNoLeave || stats.leave > 0 || stats.dayOff > 0;
+          const namesLine = (names) => names.slice(0, 3).join("、") + (names.length > 3 ? ` +${names.length - 3}` : "");
+          const showable = !isFutureNoLeave || leaveNames.length > 0 || dayOffNames.length > 0;
           return (
             <button key={i} onClick={() => showable && setOpenDay(ds)}
               className="text-left rounded-lg p-2 border hair bg-white hover:opacity-80 daycell" style={{ minHeight: 70, opacity: showable ? 1 : 0.4 }}>
               <div className="text-xs font-medium">{d}</div>
               {showable && (
                 <div className="mt-1 text-xs leading-5" style={{ color: "#5A554E" }}>
-                  {!isFutureNoLeave && <>班 {stats.in + stats.done} · 外 {stats.out}</>}
-                  {stats.leave > 0 && <div style={{ color: "#A85C5C" }}>假 {stats.leave}</div>}
-                  {stats.dayOff > 0 && <div style={{ color: "#A85C5C" }}>休 {stats.dayOff}</div>}
-                  {stats.abn > 0 && <div className="brick">異常 {stats.abn}</div>}
+                  {!isFutureNoLeave && <>班 {stats.in + stats.done}</>}
+                  {outNames.length > 0 && <div>外：{namesLine(outNames)}</div>}
+                  {leaveNames.length > 0 && <div style={{ color: "#A85C5C" }}>假：{namesLine(leaveNames)}</div>}
+                  {dayOffNames.length > 0 && <div style={{ color: "#A85C5C" }}>休：{namesLine(dayOffNames)}</div>}
+                  {abnNames.length > 0 && <div className="brick">異常：{namesLine(abnNames)}</div>}
                 </div>
               )}
             </button>
