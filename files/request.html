@@ -149,6 +149,52 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="finance-edit-modal" onclick="if(event.target.id==='finance-edit-modal')closeFinanceEdit()">
+  <div class="modal-box" style="width:520px">
+    <h3>財務編輯申請</h3>
+    <div class="form-grid">
+      <div>
+        <label class="form-label">門店</label>
+        <select class="form-select" id="fe-store">
+          <option value="中山">中山</option>
+          <option value="勤美">勤美</option>
+        </select>
+      </div>
+      <div><label class="form-label">申請人</label><input class="form-input" id="fe-applicant"></div>
+      <div class="full"><label class="form-label">廠商名稱</label><input class="form-input" id="fe-vendor"></div>
+      <div class="full"><label class="form-label">品項／用途說明</label><textarea class="form-input" id="fe-purpose"></textarea></div>
+      <div class="full"><label class="form-label">金額</label><input class="form-input" type="number" id="fe-total"></div>
+      <div><label class="form-label">戶名</label><input class="form-input" id="fe-accname"></div>
+      <div><label class="form-label">銀行 / 分行</label><input class="form-input" id="fe-bankname"></div>
+      <div class="full"><label class="form-label">銀行帳號</label><input class="form-input" id="fe-bankaccount"></div>
+      <div class="full">
+        <label class="form-label">發票狀態</label>
+        <select class="form-select" id="fe-invoice">
+          <option value="無憑證">無憑證</option>
+          <option value="後補">發票後補</option>
+          <option value="紙本發票親交">紙本發票親交</option>
+          <option value="電子發票已上傳">電子發票已上傳</option>
+        </select>
+      </div>
+      <div class="full">
+        <label class="form-label">狀態</label>
+        <select class="form-select" id="fe-status">
+          <option value="待審核">待審核</option>
+          <option value="已核准">已核准</option>
+          <option value="已撥款">已撥款</option>
+          <option value="已退回">已退回</option>
+          <option value="已取消">已取消</option>
+        </select>
+      </div>
+    </div>
+    <div id="finance-edit-status" style="font-size:12px; color:var(--sub); margin-top:8px; white-space:pre-line;"></div>
+    <div class="mactions">
+      <button class="btn btn-outline" onclick="closeFinanceEdit()">取消</button>
+      <button class="btn btn-primary" onclick="saveFinanceEdit()">儲存變更</button>
+    </div>
+  </div>
+</div>
+
 <div class="tabs">
   <div class="tab active" data-panel="submit">提出申請</div>
   <div class="tab" data-panel="review">審核與撥款<span class="tab-badge" id="tab-badge-review"></span></div>
@@ -333,6 +379,7 @@
     if(isFinanceUnlocked()){
       document.getElementById('lock-finance').style.display='none';
       document.getElementById('finance-content').style.display='block';
+      if(typeof renderHistory==='function') renderHistory();
     }
   }
 
@@ -574,6 +621,66 @@
     if(res.error){ console.error(res.error); alert('刪除失敗：'+res.error.message); }
   };
 
+  // ---- 財務編輯（申請紀錄頁，撥款密碼解鎖後可修正任何狀態的申請，
+  //      用於處理「已過審但資料填錯」「已撥款但銀行實際退匯」等情況） ----
+  var financeEditId = null;
+  window.openFinanceEdit = function(id){
+    if(!isFinanceUnlocked()){ alert('請先到「審核與撥款」頁面輸入撥款密碼解鎖'); return; }
+    var r = requests.find(function(x){ return x.id===id; });
+    if(!r) return;
+    financeEditId = id;
+    document.getElementById('fe-store').value = r.store || '中山';
+    document.getElementById('fe-applicant').value = r.applicant || '';
+    document.getElementById('fe-vendor').value = r.vendor || '';
+    document.getElementById('fe-purpose').value = r.purpose || '';
+    document.getElementById('fe-total').value = r.amount_total || '';
+    document.getElementById('fe-accname').value = r.account_name || '';
+    document.getElementById('fe-bankname').value = r.bank_name || '';
+    document.getElementById('fe-bankaccount').value = r.bank_account || '';
+    document.getElementById('fe-invoice').value = r.invoice_status || '後補';
+    document.getElementById('fe-status').value = r.status || '待審核';
+    document.getElementById('finance-edit-status').textContent = '';
+    document.getElementById('finance-edit-modal').style.display = 'flex';
+  };
+  window.closeFinanceEdit = function(){ document.getElementById('finance-edit-modal').style.display = 'none'; };
+
+  window.saveFinanceEdit = async function(){
+    if(!isFinanceUnlocked()){ alert('撥款密碼已失效，請重新解鎖'); return; }
+    var r = requests.find(function(x){ return x.id===financeEditId; });
+    if(!r) return;
+    var newStatus = document.getElementById('fe-status').value;
+    var payload = {
+      store: document.getElementById('fe-store').value,
+      applicant: document.getElementById('fe-applicant').value.trim(),
+      vendor: document.getElementById('fe-vendor').value.trim(),
+      purpose: document.getElementById('fe-purpose').value.trim(),
+      amount_total: parseFloat(document.getElementById('fe-total').value) || 0,
+      account_name: document.getElementById('fe-accname').value.trim(),
+      bank_name: document.getElementById('fe-bankname').value.trim(),
+      bank_account: document.getElementById('fe-bankaccount').value.trim(),
+      invoice_status: document.getElementById('fe-invoice').value,
+      status: newStatus,
+      updated_at: new Date().toISOString()
+    };
+    if(r.status==='已撥款' && newStatus!=='已撥款' && r.payment_record_id){
+      var alsoDelete = confirm('這筆原本是「已撥款」，現在改成「'+newStatus+'」。\n是否同時刪除已經建立在「廠商匯款紀錄」裡對應的那一筆？\n（例如：款項實際被銀行退匯時應該選「確定」）');
+      if(alsoDelete){
+        var delRes = await sb.from('records').delete().eq('id', r.payment_record_id);
+        if(delRes.error){
+          document.getElementById('finance-edit-status').textContent = '刪除匯款紀錄失敗：'+delRes.error.message;
+          return;
+        }
+        payload.payment_record_id = null;
+      }
+    }
+    var res = await sb.from('requests').update(payload).eq('id', financeEditId);
+    if(res.error){
+      document.getElementById('finance-edit-status').textContent = '儲存失敗：'+res.error.message;
+      return;
+    }
+    closeFinanceEdit();
+  };
+
   // ---- 提出申請 / 儲存編輯 ----
   document.getElementById('btn-submit').onclick = async function(){
     var store = document.getElementById('f-store').value;
@@ -690,6 +797,11 @@
           + '<button class="btn btn-reject btn-sm" onclick="deleteMyRequest('+r.id+')">🗑 刪除紀錄</button>'
           + '</div>';
       }
+    }
+    if(opts.showFinanceEdit && isFinanceUnlocked()){
+      actions += '<div class="req-actions">'
+        + '<button class="btn btn-outline btn-sm" onclick="openFinanceEdit('+r.id+')">✎ 財務編輯</button>'
+        + '</div>';
     }
     return '<div class="req-card">'
       + '<div class="req-top">'
@@ -993,7 +1105,7 @@
     }
     list = list.slice().sort(function(a,b){ return new Date(b.created_at)-new Date(a.created_at); });
     el.innerHTML = list.length
-      ? list.map(function(r){ return reqCardHtml(r, {mine:true, showBank: r.status==='已撥款'}); }).join('')
+      ? list.map(function(r){ return reqCardHtml(r, {mine:true, showBank: r.status==='已撥款', showFinanceEdit:true}); }).join('')
       : '<div class="empty">沒有符合條件的資料</div>';
   }
   document.getElementById('history-month').addEventListener('change', renderHistory);
