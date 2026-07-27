@@ -916,7 +916,7 @@
           +   '<span class="pill pill-invoice-wait">發票待收</span>'
           + '</div>'
           + '<div class="invoice-upload-row">'
-          +   '<input type="file" class="form-input" id="inv-file-'+r.id+'" accept="image/*,.pdf">'
+          +   '<input type="file" class="form-input" id="inv-file-'+r.id+'" accept="image/*,.pdf" multiple>'
           +   '<button class="btn btn-approve btn-sm" onclick="uploadInvoice('+r.id+')">上傳電子檔並標記完成</button>'
           +   '<button class="btn btn-outline btn-sm" onclick="confirmPaperInvoice('+r.id+')">紙本發票親交，標記完成</button>'
           + '</div>'
@@ -926,25 +926,33 @@
 
   window.uploadInvoice = async function(id){
     var fileInput = document.getElementById('inv-file-'+id);
-    var file = fileInput.files[0];
-    if(!file){ alert('請先選擇發票檔案（圖片或 PDF）'); return; }
+    var files = fileInput.files;
+    if(!files || !files.length){ alert('請先選擇發票檔案（圖片或 PDF，可多選）'); return; }
     var btn = fileInput.nextElementSibling;
     btn.disabled = true; btn.textContent = '上傳中...';
     try{
-      var safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_');
-      var path = 'invoice_'+Date.now()+'_'+safeName;
-      var up = await sb.storage.from('attachments').upload(path, file);
-      if(up.error) throw up.error;
-      var pub = sb.storage.from('attachments').getPublicUrl(path);
+      var urls = [];
+      for(var i=0;i<files.length;i++){
+        var file = files[i];
+        var safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_');
+        var path = 'invoice_'+Date.now()+'_'+i+'_'+safeName;
+        var up = await sb.storage.from('attachments').upload(path, file);
+        if(up.error) throw up.error;
+        var pub = sb.storage.from('attachments').getPublicUrl(path);
+        urls.push(pub.data.publicUrl);
+      }
+      var existing = records.find(function(x){ return x.id===id; });
+      var allUrls = (existing && existing.invoice_file_urls ? existing.invoice_file_urls.slice() : []).concat(urls);
       var res = await sb.from('records').update({
         invoice_received: true,
         invoice_date: new Date().toISOString().slice(0,10),
-        invoice_file_url: pub.data.publicUrl
+        invoice_file_url: allUrls[0],
+        invoice_file_urls: allUrls
       }).eq('id', id);
       if(res.error) throw res.error;
     }catch(e){
       console.error(e);
-      alert('上傳失敗，請確認 records 資料表是否已新增 invoice_file_url 欄位：\n'+(e.message||e));
+      alert('上傳失敗，請確認 records 資料表是否已新增 invoice_file_urls 欄位：\n'+(e.message||e));
       btn.disabled = false; btn.textContent = '上傳電子檔並標記完成';
     }
   };

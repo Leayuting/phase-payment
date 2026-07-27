@@ -376,7 +376,9 @@ function rowHtml(r){
   row+='<td class="td-a">'+fmt(r.amount)+'</td>';
   row+='<td><button class="pill '+pc+'" onclick="togglePill('+r.id+',\'payment_done\')">'+pt+'</button></td>';
   row+='<td><button class="pill '+ic+'" onclick="togglePill('+r.id+',\'invoice_received\')">'+it+'</button></td>';
-  row+='<td class="td-d">'+(r.invoice_date||'&#8212;')+(r.invoice_file_url?' <a href="'+r.invoice_file_url+'" target="_blank" title="查看發票檔案">📎</a>':'')+'</td>';
+  var invFiles=(r.invoice_file_urls&&r.invoice_file_urls.length)?r.invoice_file_urls:(r.invoice_file_url?[r.invoice_file_url]:[]);
+  var invLinks=invFiles.map(function(u,i){return ' <a href="'+u+'" target="_blank" title="查看發票檔案'+(invFiles.length>1?' '+(i+1):'')+'">📎</a>';}).join('');
+  row+='<td class="td-d">'+(r.invoice_date||'&#8212;')+invLinks+'</td>';
   row+='<td class="td-n">'+notes+'</td>';
   row+='<td><div class="actions"><button class="btn-edit" onclick="openEdit('+r.id+')">編輯</button> <button class="btn-del" onclick="openDel('+r.id+')">刪除</button></div></td>';
   row+='</tr>';
