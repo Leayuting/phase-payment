@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PHASE｜請款申請</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root{
     --bg:#F6F2EB; --card:#FFFFFF; --card2:#FAF8F4; --border:#D9D5CF;
@@ -377,6 +378,7 @@
           <input class="form-input" type="month" id="history-month" style="max-width:170px;">
         </div>
         <button class="btn btn-outline" id="btn-history-bank" onclick="toggleHistoryBankMode()">🏦 匯款資訊</button>
+        <button class="btn btn-outline" onclick="exportHistoryExcel()">📊 匯出 Excel</button>
       </div>
       <h3 id="history-title">申請紀錄</h3>
       <div id="list-history"><div class="empty">尚無資料</div></div>
@@ -1123,25 +1125,59 @@
     document.getElementById('history-month').disabled = historyShowPaidOnly;
     renderHistory();
   }
-  function renderHistory(){
+  function getHistoryList(){
     var monthInput = document.getElementById('history-month');
-    if(!monthInput) return;
-    if(!monthInput.value) monthInput.value = new Date().toISOString().slice(0,7);
-    var titleEl = document.getElementById('history-title');
-    var el = document.getElementById('list-history');
+    if(monthInput && !monthInput.value) monthInput.value = new Date().toISOString().slice(0,7);
     var list;
     if(historyShowPaidOnly){
       list = requests.filter(function(r){ return r.status==='已撥款'; });
-      titleEl.textContent = '已完成匯款資料（全部）';
     }else{
-      var month = monthInput.value;
+      var month = monthInput ? monthInput.value : new Date().toISOString().slice(0,7);
       list = requests.filter(function(r){ return (r.created_at||'').slice(0,7)===month; });
-      titleEl.textContent = month+' 申請紀錄';
     }
-    list = list.slice().sort(function(a,b){ return new Date(b.created_at)-new Date(a.created_at); });
+    return list.slice().sort(function(a,b){ return new Date(b.created_at)-new Date(a.created_at); });
+  }
+
+  function renderHistory(){
+    var monthInput = document.getElementById('history-month');
+    if(!monthInput) return;
+    var titleEl = document.getElementById('history-title');
+    var el = document.getElementById('list-history');
+    var list = getHistoryList();
+    titleEl.textContent = historyShowPaidOnly ? '已完成匯款資料（全部）' : (monthInput.value+' 申請紀錄');
     el.innerHTML = list.length
       ? list.map(function(r){ return reqCardHtml(r, {mine:true, showBank: r.status==='已撥款', showFinanceEdit:true}); }).join('')
       : '<div class="empty">沒有符合條件的資料</div>';
+  }
+
+  function exportHistoryExcel(){
+    var list = getHistoryList();
+    if(!list.length){ alert('目前沒有資料可以匯出'); return; }
+    var rows = list.map(function(r){
+      return {
+        '申請日期': (r.created_at||'').slice(0,10),
+        '門店': r.store||'',
+        '申請人': r.applicant||'',
+        '廠商名稱': r.vendor||'',
+        '品項/用途說明': r.purpose||'',
+        '金額': r.amount_total||0,
+        '發票狀態': r.invoice_status||'',
+        '狀態': r.status||'',
+        '戶名': r.account_name||'',
+        '銀行': r.bank_name||'',
+        '帳號': r.bank_account||'',
+        '審核備註': r.approver_note||''
+      };
+    });
+    var ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [
+      {wch:11},{wch:8},{wch:8},{wch:18},{wch:24},{wch:10},
+      {wch:12},{wch:8},{wch:14},{wch:16},{wch:16},{wch:20}
+    ];
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '請款紀錄');
+    var label = historyShowPaidOnly ? '已完成匯款' : document.getElementById('history-month').value;
+    XLSX.writeFile(wb, '請款申請_'+label+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
   }
   document.getElementById('history-month').addEventListener('change', renderHistory);
 
