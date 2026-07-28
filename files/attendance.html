@@ -365,7 +365,7 @@ function ClockCard({ me, myRec, myOutings, myLeavesToday, now, onClockIn, onCloc
       </div>
       <div className="mt-4 dline">
         {myRec?.sessions?.map((s, i) => (
-          <div key={i}><b>第 {i + 1} 段</b>　上班 {s.in}{s.out ? `　下班 ${s.out}` : "　（進行中）"}</div>
+          <div key={i} className={i > 0 ? "mt-1" : ""}><b>第 {i + 1} 段</b>　上班 {s.in}{s.out ? `　下班 ${s.out}` : "　（進行中）"}</div>
         ))}
         {myOutings.map((o, i) => (
           <div key={i}>
@@ -512,10 +512,10 @@ function TeamBoard({ view, lastSync, syncStatus, dayOffs }) {
                 <td className="td">
                   {r.outings.length === 0 && r.leaves.length === 0 && "—"}
                   {r.outings.map((o, i) => (
-                    <div key={`o${i}`}><Tag k={OUTING_CATS[o.category]?.tagKey ?? "seg"}>{OUTING_CATS[o.category]?.label ?? "外出"}</Tag> {o.start}{o.end ? `–${o.end}` : " 起"} · {o.destination} · {o.purpose}</div>
+                    <div key={`o${i}`} className="mt-1"><Tag k={OUTING_CATS[o.category]?.tagKey ?? "seg"}>{OUTING_CATS[o.category]?.label ?? "外出"}</Tag> {o.start}{o.end ? `–${o.end}` : " 起"} · {o.destination} · {o.purpose}</div>
                   ))}
                   {r.leaves.map((l, i) => (
-                    <div key={`l${i}`}>
+                    <div key={`l${i}`} className="mt-1">
                       {l.type} {l.startTime}–{l.endTime}
                       {l.startDate !== l.endDate && `（${l.startDate}～${l.endDate}）`}
                     </div>
@@ -551,10 +551,10 @@ function TeamBoard({ view, lastSync, syncStatus, dayOffs }) {
                 </div>
               )}
               {r.outings.map((o, i) => (
-                <div key={`o${i}`}><Tag k={OUTING_CATS[o.category]?.tagKey ?? "seg"}>{OUTING_CATS[o.category]?.label ?? "外出"}</Tag> {o.start}{o.end ? `–${o.end}` : " 起"} · {o.destination} · {o.purpose}</div>
+                <div key={`o${i}`} className="mt-2"><Tag k={OUTING_CATS[o.category]?.tagKey ?? "seg"}>{OUTING_CATS[o.category]?.label ?? "外出"}</Tag> {o.start}{o.end ? `–${o.end}` : " 起"} · {o.destination} · {o.purpose}</div>
               ))}
               {r.leaves.map((l, i) => (
-                <div key={`l${i}`}>
+                <div key={`l${i}`} className="mt-2">
                   {l.type} {l.startTime}–{l.endTime}
                   {l.startDate !== l.endDate && `（${l.startDate}～${l.endDate}）`}
                 </div>
@@ -716,17 +716,17 @@ function CalendarView({ me, users, leaves, leaveTypes, dayOffs }) {
                       </td>
                       <td className="td">
                         {sessions.length === 0 && "—"}
-                        {sessions.map((s, i) => <div key={i}>第{i + 1}段　{s.in}–{s.out ?? "…"}</div>)}
+                        {sessions.map((s, i) => <div key={i} className={i > 0 ? "mt-1" : ""}>第{i + 1}段　{s.in}–{s.out ?? "…"}</div>)}
                       </td>
                       <td className="td">{sessions.length ? sessionHours(sessions) : "—"}</td>
                       <td className="td">
                         {os.length === 0 && "—"}
-                        {os.map((o, i) => <div key={i}><Tag k={OUTING_CATS[o.category]?.tagKey ?? "seg"}>{OUTING_CATS[o.category]?.label ?? "外出"}</Tag> {o.start}–{o.end ?? "…"} · {o.destination} · {o.purpose}</div>)}
+                        {os.map((o, i) => <div key={i} className={i > 0 ? "mt-1" : ""}><Tag k={OUTING_CATS[o.category]?.tagKey ?? "seg"}>{OUTING_CATS[o.category]?.label ?? "外出"}</Tag> {o.start}–{o.end ?? "…"} · {o.destination} · {o.purpose}</div>)}
                       </td>
                       <td className="td">
                         {ls.length === 0 && "—"}
                         {ls.map((l, i) => (
-                          <div key={i}>
+                          <div key={i} className={i > 0 ? "mt-1" : ""}>
                             {l.type} {l.startDate === l.endDate ? "" : `${l.startDate}～${l.endDate} `}{l.startTime}–{l.endTime}
                             <div className="text-xs" style={{ color: "#8B857C" }}>
                               已批准 · 核准：{l.approvedByName ?? "—"}
@@ -1036,13 +1036,13 @@ function MyAttendance({ me, records, outings, onCorrection, onChangePw }) {
               </div>
               <div className="dline mt-2">
                 {r.sessions.map((s, i) => (
-                  <div key={`s${i}`}>
+                  <div key={`s${i}`} className={i > 0 ? "mt-1" : ""}>
                     <b>第 {i + 1} 段</b>　上班打卡 {s.in}　{s.out ? `下班打卡 ${s.out}` : "（尚未下班）"}
                     {s.in && s.out && <span style={{ color: "#B3ADA4" }}>　{((mins(s.out) - mins(s.in)) / 60).toFixed(1)}h</span>}
                   </div>
                 ))}
                 {os.map((o, i) => (
-                  <div key={`o${i}`}>
+                  <div key={`o${i}`} className="mt-1">
                     <Tag k={OUTING_CATS[o.category]?.tagKey ?? "seg"}>{OUTING_CATS[o.category]?.label ?? "外出"}</Tag>　{o.start} 出發
                     {o.expectedEnd && `　預計 ${o.expectedEnd}`}
                     {o.end ? `　實際 ${o.end} 返回（${o.returnAddress ?? "—"}）` : "　（外出中）"}
@@ -1381,7 +1381,7 @@ function AdminPanel({ me, users, departments, records, outings, leaves, leaveTyp
                 {records.filter((r) => r.userId === pickU).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 14).map((r) => (
                   <tr key={r.id}>
                     <td className="td">{r.date}</td>
-                    <td className="td">{r.sessions.map((s, i) => <div key={i}>第{i + 1}段 {s.in}–{s.out ?? "…"}</div>)}</td>
+                    <td className="td">{r.sessions.map((s, i) => <div key={i} className={i > 0 ? "mt-1" : ""}>第{i + 1}段 {s.in}–{s.out ?? "…"}</div>)}</td>
                     <td className="td" style={{ color: "#8B857C" }}>{r.lat != null ? `${r.lat}, ${r.lng}` : "—"}</td>
                     <td className="td" style={{ color: "#8B857C" }}>{r.accuracy != null ? `±${r.accuracy}m` : "—"}</td>
                     <td className="td">
