@@ -328,15 +328,17 @@ function Login() {
 }
 
 /* ---------- 個人打卡卡片 ---------- */
-function ClockCard({ me, myRec, myOutings, myLeavesToday, now, onClockIn, onClockOut, onOutStart, onOutEnd }) {
+function ClockCard({ me, myRec, myOutings, myLeavesToday, now, onClockIn, onClockOut, onOutStart, onOutEnd, onAddDestination }) {
   const st = deriveStatus(myRec, myOutings, myLeavesToday, today());
   const open = myRec?.sessions?.find((s) => !s.out);
   const activeOut = myOutings.find((o) => !o.end);
   const [showOut, setShowOut] = useState(false);
-  const [dest, setDest] = useState("");
+  const [destList, setDestList] = useState([""]);
   const [purpose, setPurpose] = useState("");
   const [expEnd, setExpEnd] = useState("");
   const [cat, setCat] = useState("general");
+  const [addDestOpen, setAddDestOpen] = useState(false);
+  const [newDest, setNewDest] = useState("");
   const segCount = myRec?.sessions?.length ?? 0;
   return (
     <div className="card p-6">
@@ -357,6 +359,7 @@ function ClockCard({ me, myRec, myOutings, myLeavesToday, now, onClockIn, onCloc
           {segCount > 0 && !open ? "再次上班打卡" : "上班打卡"}
         </button>
         <button className="btn btn-line" disabled={!open || !!activeOut} onClick={() => setShowOut(true)}>外出登記</button>
+        {activeOut && <button className="btn btn-line" onClick={() => { setNewDest(""); setAddDestOpen(true); }}>臨時加地點</button>}
         {activeOut && <button className="btn btn-brick" onClick={onOutEnd}>返回</button>}
         <button className="btn btn-line" disabled={!open || !!activeOut} onClick={onClockOut}>下班打卡</button>
       </div>
@@ -388,8 +391,20 @@ function ClockCard({ me, myRec, myOutings, myLeavesToday, now, onClockIn, onCloc
               </div>
             </div>
             <div>
-              <label className="text-xs" style={{ color: "#8B857C" }}>外出地點</label>
-              <input className="inp mt-1" value={dest} onChange={(e) => setDest(e.target.value)} placeholder="例：展晟印刷、烘豆場" />
+              <label className="text-xs" style={{ color: "#8B857C" }}>外出地點（一趟外出要跑多個地方可以逐一新增）</label>
+              <div className="space-y-2 mt-1">
+                {destList.map((v, i) => (
+                  <div key={i} className="flex gap-2">
+                    <input className="inp" value={v} placeholder={`地點 ${i + 1}，例：展晟印刷、烘豆場`}
+                      onChange={(e) => setDestList((arr) => arr.map((x, j) => (j === i ? e.target.value : x)))} />
+                    {destList.length > 1 && (
+                      <button type="button" className="btn btn-line" onClick={() => setDestList((arr) => arr.filter((_, j) => j !== i))}>移除</button>
+                    )}
+                  </div>
+                ))}
+                <button type="button" className="text-xs underline" style={{ color: "#8B857C" }}
+                  onClick={() => setDestList((arr) => [...arr, ""])}>+ 新增地點</button>
+              </div>
             </div>
             <div>
               <label className="text-xs" style={{ color: "#8B857C" }}>外出事由</label>
@@ -400,9 +415,28 @@ function ClockCard({ me, myRec, myOutings, myLeavesToday, now, onClockIn, onCloc
               <input className="inp mt-1" type="time" value={expEnd} onChange={(e) => setExpEnd(e.target.value)} />
             </div>
             <div className="text-xs" style={{ color: "#8B857C" }}>外出地點與事由為公開資訊，全體同仁皆可查看。返回時系統將記錄實際返回時間與 GPS 定位。</div>
-            <button className="btn btn-ink w-full" disabled={!dest || !purpose}
-              onClick={() => { onOutStart(dest, purpose, expEnd || null, cat); setShowOut(false); setDest(""); setPurpose(""); setExpEnd(""); setCat("general"); }}>
+            <button className="btn btn-ink w-full" disabled={!destList.some((v) => v.trim()) || !purpose}
+              onClick={() => {
+                const dest = destList.map((v) => v.trim()).filter(Boolean).join(" → ");
+                onOutStart(dest, purpose, expEnd || null, cat);
+                setShowOut(false); setDestList([""]); setPurpose(""); setExpEnd(""); setCat("general");
+              }}>
               開始外出
+            </button>
+          </div>
+        </Modal>
+      )}
+      {addDestOpen && activeOut && (
+        <Modal title="臨時加地點" onClose={() => setAddDestOpen(false)}>
+          <div className="space-y-3">
+            <div className="text-xs" style={{ color: "#8B857C" }}>目前地點：{activeOut.destination}</div>
+            <div>
+              <label className="text-xs" style={{ color: "#8B857C" }}>要加去的地點</label>
+              <input className="inp mt-1" value={newDest} onChange={(e) => setNewDest(e.target.value)} placeholder="例：郵局" />
+            </div>
+            <button className="btn btn-ink w-full" disabled={!newDest.trim()}
+              onClick={() => { onAddDestination(activeOut, newDest.trim()); setAddDestOpen(false); }}>
+              加入地點
             </button>
           </div>
         </Modal>
@@ -1767,6 +1801,13 @@ function PhaseAttendance() {
     setToast("已完成返回，狀態恢復為已上班");
     loadAll();
   };
+  const addDestination = async (outing, extraDest) => {
+    const newDestination = `${outing.destination} → ${extraDest}`;
+    const { error } = await sb.from("outings").update({ destination: newDestination }).eq("id", outing.id);
+    if (error) { setToast("新增地點失敗：" + error.message); return; }
+    setToast("已加入地點");
+    loadAll();
+  };
   const applyLeave = async (f) => {
     const { data, error } = await sb.from("leaves").insert({
       employee_id: me.id, leave_type_id: f.typeId, reason: f.reason,
@@ -2057,7 +2098,7 @@ function PhaseAttendance() {
             <>
               {me.role !== "admin" && (
                 <ClockCard me={me} myRec={myRec} myOutings={myOutings} myLeavesToday={myLeavesToday} now={now}
-                  onClockIn={clockIn} onClockOut={clockOut} onOutStart={outStart} onOutEnd={outEnd} />
+                  onClockIn={clockIn} onClockOut={clockOut} onOutStart={outStart} onOutEnd={outEnd} onAddDestination={addDestination} />
               )}
               <TeamBoard view={view} lastSync={lastSync} syncStatus={syncStatus} dayOffs={dayOffs} />
             </>
