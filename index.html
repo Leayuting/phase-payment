@@ -129,6 +129,31 @@ label{font-size:10px;color:#5E6770;letter-spacing:1.5px;text-transform:uppercase
 </style>
 </head>
 <body>
+<div id="lockPage" style="position:fixed;inset:0;background:#1F1F1C;display:flex;align-items:center;justify-content:center;z-index:500;">
+  <div style="background:#F6F2EB;border-radius:10px;padding:32px;width:320px;max-width:90vw;text-align:center;">
+    <div style="font-size:11px;color:#5E6770;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;">Phase · 廠商匯款紀錄</div>
+    <h2 style="margin-bottom:20px;color:#1F1F1C;">請輸入密碼</h2>
+    <input type="password" id="pagePw" class="fi" placeholder="請輸入密碼" style="margin-bottom:12px;">
+    <button class="btn-save" style="width:100%" onclick="unlockPage()">進入</button>
+    <div id="pagePwErr" style="color:#8a3a2a;font-size:12px;margin-top:10px;display:none;">密碼錯誤，請再試一次</div>
+  </div>
+</div>
+<script>
+(function(){
+  function isPageUnlocked(){ return sessionStorage.getItem('phase_page_unlocked')==='1'; }
+  if(isPageUnlocked()){ document.getElementById('lockPage').style.display='none'; }
+  window.unlockPage = function(){
+    var pw = document.getElementById('pagePw').value;
+    if(pw === "82981656"){
+      sessionStorage.setItem('phase_page_unlocked','1');
+      document.getElementById('lockPage').style.display='none';
+    }else{
+      document.getElementById('pagePwErr').style.display='block';
+    }
+  };
+  document.getElementById('pagePw').addEventListener('keydown', function(e){ if(e.key==='Enter') unlockPage(); });
+})();
+</script>
 <div class="overlay" id="overlay"><div class="spinner"></div><div class="overlay-text">連線中...</div></div>
 <div class="header">
   <div class="header-left">
