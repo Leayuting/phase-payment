@@ -167,6 +167,8 @@ const mapOuting = (r) => ({
   id: r.id, userId: r.employee_id, date: r.date,
   start: hm(r.start_time), expectedEnd: hm(r.expected_end), end: hm(r.end_time),
   destination: r.destination, purpose: r.purpose, category: r.category || "general",
+  departLat: r.depart_lat, departLng: r.depart_lng, departAccuracy: r.depart_accuracy,
+  arriveLat: r.arrive_lat, arriveLng: r.arrive_lng, arriveAccuracy: r.arrive_accuracy, arrivedAt: r.arrived_at,
   returnLat: r.return_lat, returnLng: r.return_lng, returnAccuracy: r.return_accuracy, returnAddress: r.return_address,
   returnedAt: r.returned_at,
 });
@@ -328,7 +330,7 @@ function Login() {
 }
 
 /* ---------- 個人打卡卡片 ---------- */
-function ClockCard({ me, myRec, myOutings, myLeavesToday, now, onClockIn, onClockOut, onOutStart, onOutEnd, onAddDestination }) {
+function ClockCard({ me, myRec, myOutings, myLeavesToday, now, onClockIn, onClockOut, onOutStart, onOutEnd, onAddDestination, onOutArrive }) {
   const st = deriveStatus(myRec, myOutings, myLeavesToday, today());
   const open = myRec?.sessions?.find((s) => !s.out);
   const activeOut = myOutings.find((o) => !o.end);
@@ -360,6 +362,7 @@ function ClockCard({ me, myRec, myOutings, myLeavesToday, now, onClockIn, onCloc
         </button>
         <button className="btn btn-line" disabled={!open || !!activeOut} onClick={() => setShowOut(true)}>外出登記</button>
         {activeOut && <button className="btn btn-line" onClick={() => { setNewDest(""); setAddDestOpen(true); }}>臨時加地點</button>}
+        {activeOut && !activeOut.arrivedAt && <button className="btn btn-line" onClick={onOutArrive}>到達</button>}
         {activeOut && <button className="btn btn-brick" onClick={onOutEnd}>返回</button>}
         <button className="btn btn-line" disabled={!open || !!activeOut} onClick={onClockOut}>下班打卡</button>
       </div>
@@ -368,11 +371,12 @@ function ClockCard({ me, myRec, myOutings, myLeavesToday, now, onClockIn, onCloc
           <div key={i} className={i > 0 ? "mt-1" : ""}><b>第 {i + 1} 段</b>　上班 {s.in}{s.out ? `　下班 ${s.out}` : "　（進行中）"}</div>
         ))}
         {myOutings.map((o, i) => (
-          <div key={i}>
+          <div key={i} className={i > 0 ? "mt-1" : ""}>
             <Tag k={OUTING_CATS[o.category]?.tagKey ?? "seg"}>{OUTING_CATS[o.category]?.label ?? "外出"}</Tag>
             　{o.start} 出發
             {o.expectedEnd && `　預計 ${o.expectedEnd} 返回`}
-            {o.end ? `　實際 ${o.end} 返回` : "　（外出中）"}
+            {!o.end && (o.arrivedAt ? `　已到達（${fmtTime(new Date(o.arrivedAt))}）` : "　（外出中，尚未到達）")}
+            {o.end ? `　實際 ${o.end} 返回` : ""}
             　{o.destination} · {o.purpose}
           </div>
         ))}
@@ -1417,7 +1421,8 @@ function AdminPanel({ me, users, departments, records, outings, leaves, leaveTyp
           <table className="w-full">
             <thead><tr>
               <th className="th">日期</th><th className="th">員工</th><th className="th">出發</th><th className="th">預計返回</th>
-              <th className="th">實際返回</th><th className="th">地點 · 事由</th><th className="th">返回定位</th>
+              <th className="th">到達</th><th className="th">實際返回</th><th className="th">地點 · 事由</th>
+              <th className="th">出發定位</th><th className="th">到達定位</th><th className="th">返回定位</th>
             </tr></thead>
             <tbody>
               {[...outings].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 25).map((o) => (
@@ -1426,9 +1431,16 @@ function AdminPanel({ me, users, departments, records, outings, leaves, leaveTyp
                   <td className="td font-medium">{uName(o.userId)}</td>
                   <td className="td">{o.start}</td>
                   <td className="td">{o.expectedEnd ?? "—"}</td>
+                  <td className="td">{o.arrivedAt ? fmtTime(new Date(o.arrivedAt)) : "—"}</td>
                   <td className="td">{o.end ?? <Tag k="out">外出中</Tag>}</td>
                   <td className="td">
                     <Tag k={OUTING_CATS[o.category]?.tagKey ?? "seg"}>{OUTING_CATS[o.category]?.label ?? "外出"}</Tag> {o.destination} · {o.purpose}
+                  </td>
+                  <td className="td" style={{ color: "#8B857C" }}>
+                    {o.departLat != null ? <>{o.departLat}, {o.departLng}（±{o.departAccuracy}m）</> : "—"}
+                  </td>
+                  <td className="td" style={{ color: "#8B857C" }}>
+                    {o.arriveLat != null ? <>{o.arriveLat}, {o.arriveLng}（±{o.arriveAccuracy}m）</> : "—"}
                   </td>
                   <td className="td" style={{ color: "#8B857C" }}>
                     {o.end ? <>{o.returnLat}, {o.returnLng}（±{o.returnAccuracy}m）</> : "—"}
@@ -1780,12 +1792,26 @@ function PhaseAttendance() {
     loadAll();
   };
   const outStart = async (destination, purpose, expectedEnd, category) => {
+    const pos = await getPosition();
     const { error } = await sb.from("outings").insert({
       employee_id: me.id, date: ds, start_time: fmtTime(new Date()),
       expected_end: expectedEnd, destination, purpose, category: category || "general",
+      depart_lat: pos?.lat ?? null, depart_lng: pos?.lng ?? null, depart_accuracy: pos?.accuracy ?? null,
     });
     if (error) { setToast("外出登記失敗：" + error.message); return; }
-    setToast("外出登記完成");
+    setToast(pos ? "外出登記完成，已記錄出發定位" : "外出登記完成（GPS 定位失敗，僅記錄時間）");
+    loadAll();
+  };
+  const outArrive = async () => {
+    const o = outings.find((x) => x.userId === me.id && x.date === ds && !x.end);
+    if (!o) return;
+    const pos = await getPosition();
+    const { error } = await sb.from("outings").update({
+      arrive_lat: pos?.lat ?? null, arrive_lng: pos?.lng ?? null, arrive_accuracy: pos?.accuracy ?? null,
+      arrived_at: new Date().toISOString(),
+    }).eq("id", o.id);
+    if (error) { setToast("操作失敗：" + error.message); return; }
+    setToast(pos ? "已記錄到達定位" : "已記錄到達時間（GPS 定位失敗）");
     loadAll();
   };
   const outEnd = async () => {
@@ -2098,7 +2124,7 @@ function PhaseAttendance() {
             <>
               {me.role !== "admin" && (
                 <ClockCard me={me} myRec={myRec} myOutings={myOutings} myLeavesToday={myLeavesToday} now={now}
-                  onClockIn={clockIn} onClockOut={clockOut} onOutStart={outStart} onOutEnd={outEnd} onAddDestination={addDestination} />
+                  onClockIn={clockIn} onClockOut={clockOut} onOutStart={outStart} onOutEnd={outEnd} onAddDestination={addDestination} onOutArrive={outArrive} />
               )}
               <TeamBoard view={view} lastSync={lastSync} syncStatus={syncStatus} dayOffs={dayOffs} />
             </>
