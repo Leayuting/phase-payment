@@ -380,7 +380,7 @@ function ClockCard({ me, myRec, myOutings, myLeavesToday, now, onClockIn, onCloc
             　{o.destination} · {o.purpose}
           </div>
         ))}
-        {segCount === 0 && !myLeavesToday.length && "今日尚未打卡。打卡將記錄伺服器時間與 GPS 定位。下班後如需再次上班，可重新打卡，各段紀錄皆完整保留。"}
+        {segCount === 0 && !myLeavesToday.length && "今日尚未打卡。下班後如需再次上班，可重新打卡，各段紀錄皆完整保留。"}
         {segCount === 0 && myLeavesToday.some((l) => l.status === "approved") && "今日為請假日。"}
       </div>
       {showOut && (
@@ -418,7 +418,7 @@ function ClockCard({ me, myRec, myOutings, myLeavesToday, now, onClockIn, onCloc
               <label className="text-xs" style={{ color: "#8B857C" }}>預計返回時間（選填）</label>
               <input className="inp mt-1" type="time" value={expEnd} onChange={(e) => setExpEnd(e.target.value)} />
             </div>
-            <div className="text-xs" style={{ color: "#8B857C" }}>外出地點與事由為公開資訊，全體同仁皆可查看。返回時系統將記錄實際返回時間與 GPS 定位。</div>
+            <div className="text-xs" style={{ color: "#8B857C" }}>外出地點與事由為公開資訊，全體同仁皆可查看。</div>
             <button className="btn btn-ink w-full" disabled={!destList.some((v) => v.trim()) || !purpose}
               onClick={() => {
                 const dest = destList.map((v) => v.trim()).filter(Boolean).join(" → ");
@@ -1779,7 +1779,7 @@ function PhaseAttendance() {
       }));
     }
     if (error) { setToast("打卡失敗：" + error.message); return; }
-    setToast(pos ? "上班打卡完成" : "上班打卡完成（GPS 定位失敗，僅記錄時間）");
+    setToast("上班打卡完成");
     loadAll();
   };
   const clockOut = async () => {
@@ -1799,7 +1799,7 @@ function PhaseAttendance() {
       depart_lat: pos?.lat ?? null, depart_lng: pos?.lng ?? null, depart_accuracy: pos?.accuracy ?? null,
     });
     if (error) { setToast("外出登記失敗：" + error.message); return; }
-    setToast(pos ? "外出登記完成，已記錄出發定位" : "外出登記完成（GPS 定位失敗，僅記錄時間）");
+    setToast("外出登記完成");
     loadAll();
   };
   const outArrive = async () => {
@@ -1811,7 +1811,7 @@ function PhaseAttendance() {
       arrived_at: new Date().toISOString(),
     }).eq("id", o.id);
     if (error) { setToast("操作失敗：" + error.message); return; }
-    setToast(pos ? "已記錄到達定位" : "已記錄到達時間（GPS 定位失敗）");
+    setToast("已記錄到達");
     loadAll();
   };
   const outEnd = async () => {
