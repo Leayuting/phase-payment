@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="robots" content="noindex, nofollow">
+<title>PHASE 中山｜候位登記</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --paper:#F6F2EB;
+    --ink:#1B1816;
+    --mist:#D9D5CF;
+    --olive:#4E5747;
+    --steel:#5E6770;
+    --alert:#8C4A3C;
+    --brown:#A9754A;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Noto Sans TC',sans-serif;
+    -webkit-tap-highlight-color:transparent;
+    overscroll-behavior:none;
+  }
+  .serif{font-family:'Noto Serif TC',serif;}
+  button{font-family:inherit;cursor:pointer;}
+  input,textarea{font-family:inherit;}
+
+  .demo-badge{
+    position:fixed;top:10px;left:10px;z-index:999;
+    background:var(--alert);color:var(--paper);
+    font-size:12px;font-weight:700;letter-spacing:1px;
+    padding:4px 10px;border-radius:4px;
+    display:none;
+  }
+  body.demo .demo-badge{display:block;}
+
+  .screen{display:none;min-height:100vh;flex-direction:column;}
+  .screen.active{display:flex;}
+
+  /* ---------- Guest screen ---------- */
+  #screen-guest{position:relative;align-items:center;padding:32px 20px 90px;}
+  .lang-toggle{
+    position:absolute;top:20px;right:20px;
+    width:44px;height:44px;display:flex;align-items:center;justify-content:center;
+    border:1px solid var(--ink);border-radius:50%;
+    font-size:13px;font-weight:700;
+    background:transparent;color:var(--ink);
+  }
+  .guest-wrap{width:100%;max-width:480px;}
+  .guest-wrap h1{font-size:28px;margin:8px 0 28px;text-align:center;}
+  .field{margin-bottom:22px;}
+  .field label{display:block;font-size:14px;font-weight:500;margin-bottom:8px;color:var(--ink);}
+  .field .hint{font-size:12px;color:var(--steel);font-weight:400;margin-left:6px;}
+  .field input[type=text],.field input[type=tel],.field textarea{
+    width:100%;border:1px solid var(--mist);background:#fff;
+    border-radius:8px;padding:14px 14px;font-size:16px;color:var(--ink);
+    min-height:44px;
+  }
+  .field input:focus,.field textarea:focus{outline:2px solid var(--steel);}
+  .field textarea{resize:none;min-height:70px;}
+  .char-count{display:block;text-align:right;font-size:12px;color:var(--steel);margin-top:4px;}
+
+  .party-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:10px;}
+  .party-btn{
+    height:52px;border:1px solid var(--mist);background:#fff;border-radius:8px;
+    font-size:18px;font-weight:500;color:var(--ink);
+  }
+  .party-btn.selected{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+  .party-stepper{display:flex;align-items:center;justify-content:center;gap:18px;margin-top:6px;}
+  .step-btn{
+    width:44px;height:44px;border-radius:50%;border:1px solid var(--ink);
+    background:transparent;font-size:20px;color:var(--ink);display:flex;align-items:center;justify-content:center;
+  }
+  .party-value{font-size:20px;min-width:64px;text-align:center;}
+
+  .form-error{
+    color:var(--alert);font-size:14px;font-weight:500;margin:4px 0 16px;
+    min-height:20px;
+  }
+  .btn-primary{
+    width:100%;height:60px;border:none;border-radius:10px;
+    background:var(--ink);color:var(--paper);font-size:18px;font-weight:700;
+    letter-spacing:1px;
+  }
+  .btn-primary:disabled{opacity:.5;}
+
+  .staff-entry{
+    position:fixed;bottom:14px;right:16px;font-size:11px;letter-spacing:2px;
+    color:var(--mist);padding:10px;
+  }
+
+  /* ---------- Success screen ---------- */
+  #screen-success{
+    background:var(--ink);color:var(--paper);align-items:center;justify-content:center;
+    text-align:center;padding:24px;
+  }
+  .success-wrap{max-width:420px;}
+  .success-label{font-size:16px;letter-spacing:4px;color:var(--mist);margin:0 0 18px;}
+  .success-sub{font-size:14px;color:var(--mist);margin:0 0 6px;}
+  .success-no{font-size:64px;margin:0 0 40px;font-weight:700;}
+  .ahead-label{font-size:14px;color:var(--mist);margin:0;}
+  .ahead-count{font-size:104px;margin:4px 0;font-weight:700;line-height:1;}
+  .next-msg{font-size:20px;margin:20px 0;font-weight:600;}
+  .contact-note{font-size:13px;color:var(--mist);line-height:1.9;margin-top:36px;}
+  .success-back-btn{
+    margin-top:28px;height:44px;padding:0 22px;border-radius:8px;
+    border:1px solid var(--mist);background:transparent;color:var(--paper);
+    font-size:14px;font-weight:500;
+  }
+
+  /* ---------- Staff gate ---------- */
+  #screen-staff-gate{align-items:center;justify-content:center;}
+  .gate-wrap{width:100%;max-width:320px;text-align:center;padding:24px;}
+  .gate-title{font-size:22px;margin-bottom:28px;}
+  .pin-dots{display:flex;justify-content:center;gap:16px;margin-bottom:14px;}
+  .pin-dot{width:14px;height:14px;border-radius:50%;border:1px solid var(--ink);}
+  .pin-dot.filled{background:var(--ink);}
+  .pin-error{color:var(--alert);font-size:13px;min-height:18px;margin-bottom:14px;}
+  .keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+  .key-btn{
+    height:60px;border-radius:10px;border:1px solid var(--mist);background:#fff;
+    font-size:20px;color:var(--ink);
+  }
+  .key-btn.wide{font-size:13px;}
+  .gate-back{margin-top:24px;font-size:13px;color:var(--steel);background:none;border:none;text-decoration:underline;padding:10px;}
+
+  /* ---------- Staff dashboard ---------- */
+  #screen-staff{padding:16px 16px 40px;}
+  .staff-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+  .staff-header h1{font-size:20px;margin:0;}
+  .staff-header .actions{display:flex;gap:8px;}
+  .btn-ghost{
+    height:44px;padding:0 16px;border-radius:8px;border:1px solid var(--ink);
+    background:transparent;color:var(--ink);font-size:14px;font-weight:500;
+  }
+
+  .stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px;}
+  .stat-card{background:#fff;border:1px solid var(--mist);border-radius:10px;padding:10px 8px;text-align:center;}
+  .stat-num{font-size:22px;font-weight:700;font-family:'Noto Serif TC',serif;}
+  .stat-label{font-size:11px;color:var(--steel);margin-top:2px;}
+
+  .controls-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap;}
+  .tabs{display:flex;gap:8px;}
+  .tab-btn{height:40px;padding:0 16px;border-radius:20px;border:1px solid var(--mist);background:#fff;font-size:13px;color:var(--steel);}
+  .tab-btn.active{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+  #searchInput{flex:1;min-width:180px;height:40px;border:1px solid var(--mist);border-radius:8px;padding:0 12px;font-size:14px;background:#fff;}
+
+  .list-wrap{display:flex;flex-direction:column;gap:8px;}
+  .empty-hint{text-align:center;color:var(--steel);font-size:14px;padding:40px 0;}
+
+  .entry-row{background:#fff;border:1px solid var(--mist);border-radius:10px;padding:12px 14px;}
+  .entry-row.dim{opacity:.5;}
+  .entry-row.overtime{border-color:var(--alert);background:#FBF1EE;}
+  .entry-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .status-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+  .entry-no{font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;min-width:34px;}
+  .entry-name{font-size:16px;font-weight:500;}
+  .entry-meta{font-size:12px;color:var(--steel);}
+  .status-label{font-size:12px;font-weight:700;padding:3px 8px;border-radius:4px;color:#fff;}
+  .entry-mid{display:flex;gap:18px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:var(--steel);}
+  .entry-mid a{color:var(--steel);text-decoration:underline;}
+  .entry-note{color:var(--olive);font-size:13px;margin-top:6px;white-space:normal;word-break:break-word;}
+  .entry-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+  .act-btn{height:44px;padding:0 14px;border-radius:8px;border:1px solid var(--ink);background:transparent;font-size:13px;color:var(--ink);font-weight:500;}
+  .act-btn.primary{background:var(--ink);color:var(--paper);}
+  .act-btn.danger{border-color:var(--alert);color:var(--alert);}
+
+  .expand-panel{margin-top:12px;padding-top:12px;border-top:1px solid var(--mist);}
+  .reason-grid{display:flex;flex-wrap:wrap;gap:8px;}
+  .reason-btn{height:44px;padding:0 14px;border-radius:8px;border:1px solid var(--mist);background:var(--paper);font-size:13px;}
+  .seat-input-row{display:flex;gap:8px;align-items:center;}
+  .seat-input-row input{flex:1;height:44px;border:1px solid var(--mist);border-radius:8px;padding:0 12px;font-size:14px;}
+
+  .toast{
+    position:fixed;top:16px;left:50%;transform:translateX(-50%);
+    background:var(--ink);color:var(--paper);padding:12px 22px;border-radius:8px;
+    font-size:14px;font-weight:500;opacity:0;pointer-events:none;transition:opacity .25s;z-index:1000;
+  }
+  .toast.show{opacity:1;}
+
+  @media (max-width:640px){
+    .stats-row{grid-template-columns:repeat(3,1fr);}
+    .stat-card:nth-child(4),.stat-card:nth-child(5){grid-column:span 1;}
+  }
+</style>
+</head>
+<body>
+
+<div class="demo-badge">DEMO 示範模式</div>
+
+<!-- ============ 客人登記頁 ============ -->
+<div id="screen-guest" class="screen active">
+  <button type="button" class="lang-toggle" id="langToggle">EN</button>
+  <div class="guest-wrap">
+    <h1 class="serif" data-zh="候位登記" data-en="Waitlist">候位登記</h1>
+    <form id="guestForm" autocomplete="off">
+      <div class="field">
+        <label data-zh="稱呼" data-en="Name">稱呼</label>
+        <input type="text" id="fName" maxlength="20" autocomplete="off">
+      </div>
+
+      <div class="field">
+        <label data-zh="人數" data-en="Party Size">人數</label>
+        <div class="party-grid" id="partyGrid"></div>
+        <div class="party-stepper">
+          <button type="button" class="step-btn" id="partyMinus">−</button>
+          <span class="party-value serif" id="partyValue">2</span>
+          <button type="button" class="step-btn" id="partyPlus">+</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label data-zh="電話" data-en="Phone"><span data-zh="電話" data-en="Phone">電話</span><span class="hint" data-zh="(電話與 Instagram 擇一必填)" data-en="(phone or Instagram required)">(電話與 Instagram 擇一必填)</span></label>
+        <input type="tel" inputmode="numeric" id="fPhone" maxlength="10" autocomplete="off" placeholder="09xxxxxxxx">
+      </div>
+
+      <div class="field">
+        <label data-zh="Instagram" data-en="Instagram">Instagram</label>
+        <input type="text" id="fIg" maxlength="30" autocomplete="off" placeholder="ig_username">
+      </div>
+
+      <div class="field">
+        <label data-zh="備註" data-en="Note"><span data-zh="備註" data-en="Note">備註</span><span class="hint" data-zh="(選填)" data-en="(optional)">(選填)</span></label>
+        <textarea id="fNote" maxlength="50"></textarea>
+        <span class="char-count"><span id="noteCount">0</span>/50</span>
+      </div>
+
+      <div class="form-error" id="formError" role="alert"></div>
+
+      <button type="submit" class="btn-primary" id="submitBtn" data-zh="送出候位" data-en="Submit">送出候位</button>
+    </form>
+  </div>
+  <button type="button" class="staff-entry" id="staffEntry">STAFF</button>
+</div>
+
+<!-- ============ 候位成功頁 ============ -->
+<div id="screen-success" class="screen">
+  <div class="success-wrap">
+    <p class="success-label">候位成功</p>
+    <p class="success-sub">您的候位號碼</p>
+    <p class="success-no serif" id="successNo">--</p>
+    <div id="aheadWrap">
+      <p class="ahead-label">目前前方等待</p>
+      <p class="ahead-count serif" id="aheadCount">0</p>
+      <p class="ahead-label">組</p>
+    </div>
+    <p class="next-msg" id="nextMsg" style="display:none;">即將為您安排入座 · You are next</p>
+    <p class="contact-note">輪到您時,我們會以電話或 Instagram 訊息與您聯繫。<br>We will contact you by phone or Instagram when it's your turn.</p>
+    <button type="button" class="success-back-btn" id="successBackBtn">返回候位登記</button>
+  </div>
+</div>
+
+<!-- ============ 店員密碼頁 ============ -->
+<div id="screen-staff-gate" class="screen">
+  <div class="gate-wrap">
+    <p class="serif gate-title">店員登入</p>
+    <div class="pin-dots" id="pinDots"></div>
+    <div class="pin-error" id="pinError"></div>
+    <div class="keypad" id="keypad"></div>
+    <button type="button" class="gate-back" id="gateBack">返回登記頁</button>
+  </div>
+</div>
+
+<!-- ============ 店員後台 ============ -->
+<div id="screen-staff" class="screen">
+  <div class="staff-header">
+    <h1 class="serif">PHASE 中山 · 候位管理</h1>
+    <div class="actions">
+      <button type="button" class="btn-ghost" id="backToGuestBtn">返回登記頁</button>
+    </div>
+  </div>
+
+  <div class="stats-row" id="statsRow"></div>
+
+  <div class="controls-row">
+    <div class="tabs" id="tabs">
+      <button type="button" class="tab-btn active" data-tab="active">候位中</button>
+      <button type="button" class="tab-btn" data-tab="all">全部</button>
+    </div>
+    <input type="text" id="searchInput" placeholder="搜尋 稱呼／電話／IG／號碼" autocomplete="off">
+  </div>
+
+  <div class="list-wrap" id="listWrap"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ================= 系統常數 ================= */
+  var SUPABASE_URL = 'https://knkpxeynkecfsmonmzvi.supabase.co';
+  var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtua3B4ZXlua2VjZnNtb25tenZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyODUwNDEsImV4cCI6MjA5NDg2MTA0MX0.NUsXfRAEEG2RSeP_uwDGrvWdsuFj--WC6z10u55wiW0';
+  var DEMO_MODE = !SUPABASE_URL || !SUPABASE_ANON_KEY;
+
+  var STORE_NAME = '中山';
+  var STAFF_PIN = '119';
+  var DONE_SECONDS = 15;
+  var DONE_POLL_MS = 3000;
+  var POLL_MS = 8000;
+  var NOTIFY_ALERT_MIN = 10;
+  var NOTIFY_MSG = 'PHASE 中山｜您好,您的候位 {N} 號可以入座囉,請於 10 分鐘內回到現場,謝謝!';
+  var STAFF_IDLE_MS = 180000;
+  var GUEST_IDLE_MS = 90000;
+
+  var CANCEL_REASONS = ['客人取消','過號未到','聯絡不到','重複登記','店員誤建','其他'];
+
+  var STATUS_META = {
+    waiting:   { label:'等待中', color:'#A9754A' },
+    notified:  { label:'已通知', color:'#5E6770' },
+    seated:    { label:'已帶位', color:'#4E5747' },
+    cancelled: { label:'已取消', color:'#D9D5CF' }
+  };
+
+  /* ================= 小工具 ================= */
+  function pad(n){ return n < 10 ? '0' + n : '' + n; }
+
+  function taipeiDate(d){
+    var base = d ? new Date(d) : new Date();
+    return new Date(base.getTime() + 8 * 3600 * 1000);
+  }
+  function taipeiDateStr(d){
+    var t = taipeiDate(d);
+    return t.getUTCFullYear() + '-' + pad(t.getUTCMonth()+1) + '-' + pad(t.getUTCDate());
+  }
+  function taipeiHHMM(d){
+    var t = taipeiDate(d);
+    return pad(t.getUTCHours()) + ':' + pad(t.getUTCMinutes());
+  }
+  function minutesBetween(startIso, endIso){
+    var start = new Date(startIso).getTime();
+    var end = endIso ? new Date(endIso).getTime() : Date.now();
+    return Math.max(0, Math.round((end - start) / 60000));
+  }
+  function escapeHtml(str){
+    return String(str === null || str === undefined ? '' : str)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+  function buildNotifyMsg(waitNo){
+    return NOTIFY_MSG.replace('{N}', String(waitNo));
+  }
+  function uuid(){
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c){
+      var r = Math.random()*16|0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+  function copyToClipboard(text){
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).catch(function(){});
+    }
+  }
+  function beep(){
+    try{
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.4);
+    }catch(e){}
+  }
+  function showToast(msg){
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function(){ el.classList.remove('show'); }, 3000);
+  }
+
+  /* ================= DB 層（demo / supabase 共用介面） ================= */
+  var demoEntries = [];
+  var demoLogs = [];
+  var demoSeq = 1;
+
+  var supa = null;
+  if (!DEMO_MODE) {
+    supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  } else {
+    document.body.classList.add('demo');
+    seedDemoData();
+  }
+
+  function seedDemoData(){
+    var today = taipeiDateStr();
+    var now = Date.now();
+    function mk(no, name, party, phone, ig, note, status, offsetMin){
+      var created = new Date(now - offsetMin*60000).toISOString();
+      var e = {
+        id: uuid(), store: STORE_NAME, wait_date: today, wait_no: no,
+        name: name, party_size: party, phone: phone, ig: ig, note: note || '',
+        status: status, table_no: null, cancel_reason: null,
+        created_at: created, notified_at: null, seated_at: null, cancelled_at: null
+      };
+      if (status === 'notified' || status === 'seated') e.notified_at = new Date(now - Math.max(0,offsetMin-4)*60000).toISOString();
+      if (status === 'seated') e.seated_at = new Date(now - Math.max(0,offsetMin-9)*60000).toISOString();
+      if (status === 'cancelled') { e.cancelled_at = new Date(now - Math.max(0,offsetMin-2)*60000).toISOString(); e.cancel_reason = '客人取消'; }
+      return e;
+    }
+    demoEntries.push(mk(1,'王小明',2,'0912345678','','','seated',42));
+    demoEntries.push(mk(2,'陳大文',4,'','coffee_lover','靠窗位置','cancelled',35));
+    demoEntries.push(mk(3,'林小姐',3,'0922333444','','','notified',18));
+    demoEntries.push(mk(4,'Amy',2,'','amy_travels','','waiting',9));
+    demoEntries.push(mk(5,'張先生',6,'0933666777','','六人桌,謝謝','waiting',3));
+    demoSeq = 6;
+  }
+
+  function dbGetTodayEntries(cb){
+    var today = taipeiDateStr();
+    if (DEMO_MODE) {
+      var rows = demoEntries.filter(function(e){ return e.store === STORE_NAME && e.wait_date === today; });
+      rows.sort(function(a,b){ return a.wait_no - b.wait_no; });
+      cb(null, rows);
+      return;
+    }
+    supa.from('wait_entries').select('*').eq('store', STORE_NAME).eq('wait_date', today)
+      .order('wait_no', { ascending: true })
+      .then(function(res){ cb(res.error || null, res.data || []); });
+  }
+
+  function dbInsertEntry(entry, cb){
+    if (DEMO_MODE) {
+      var exists = demoEntries.some(function(e){
+        return e.store === entry.store && e.wait_date === entry.wait_date && e.wait_no === entry.wait_no;
+      });
+      if (exists) { cb({ code: '23505' }, null); return; }
+      var row = {};
+      for (var k in entry) row[k] = entry[k];
+      row.id = uuid();
+      demoEntries.push(row);
+      cb(null, row);
+      return;
+    }
+    supa.from('wait_entries').insert(entry).select().then(function(res){
+      if (res.error) { cb(res.error, null); return; }
+      cb(null, res.data && res.data[0]);
+    });
+  }
+
+  function dbGetMaxWaitNo(dateStr, cb){
+    if (DEMO_MODE) {
+      var rows = demoEntries.filter(function(e){ return e.store === STORE_NAME && e.wait_date === dateStr; });
+      var max = 0;
+      rows.forEach(function(e){ if (e.wait_no > max) max = e.wait_no; });
+      cb(null, max);
+      return;
+    }
+    supa.from('wait_entries').select('wait_no').eq('store', STORE_NAME).eq('wait_date', dateStr)
+      .order('wait_no', { ascending: false }).limit(1)
+      .then(function(res){
+        if (res.error) { cb(res.error, 0); return; }
+        cb(null, (res.data && res.data.length) ? res.data[0].wait_no : 0);
+      });
+  }
+
+  function dbConditionalUpdate(id, expectedStatus, patch, cb){
+    if (DEMO_MODE) {
+      var row = null;
+      for (var i=0;i<demoEntries.length;i++){ if (demoEntries[i].id === id) { row = demoEntries[i]; break; } }
+      if (!row || row.status !== expectedStatus) { cb(null, []); return; }
+      for (var k in patch) row[k] = patch[k];
+      cb(null, [row]);
+      return;
+    }
+    supa.from('wait_entries').update(patch).eq('id', id).eq('status', expectedStatus).select()
+      .then(function(res){ cb(res.error || null, res.data || []); });
+  }
+
+  function dbInsertLog(log, cb){
+    if (DEMO_MODE) {
+      var row = {}; for (var k in log) row[k] = log[k];
+      row.id = uuid();
+      demoLogs.push(row);
+      cb && cb(null, row);
+      return;
+    }
+    supa.from('wait_status_logs').insert(log).then(function(res){ cb && cb(res.error || null, res.data); });
+  }
+
+  /* ================= 畫面切換 ================= */
+  var screens = ['screen-guest','screen-success','screen-staff-gate','screen-staff'];
+  function showScreen(id){
+    screens.forEach(function(s){
+      document.getElementById(s).classList.toggle('active', s === id);
+    });
+  }
+
+  /* ================= 語言切換 ================= */
+  var lang = 'zh';
+  function applyLang(){
+    var nodes = document.querySelectorAll('[data-zh][data-en]');
+    for (var i=0;i<nodes.length;i++){
+      var n = nodes[i];
+      n.textContent = lang === 'zh' ? n.getAttribute('data-zh') : n.getAttribute('data-en');
+    }
+    document.getElementById('langToggle').textContent = lang === 'zh' ? 'EN' : '中';
+  }
+  document.getElementById('langToggle').addEventListener('click', function(){
+    lang = lang === 'zh' ? 'en' : 'zh';
+    applyLang();
+  });
+
+  /* ================= 客人登記頁 ================= */
+  var partySize = 2;
+  var partyGrid = document.getElementById('partyGrid');
+  for (var pi=1; pi<=6; pi++){
+    (function(v){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'party-btn';
+      b.textContent = v;
+      b.addEventListener('click', function(){ setPartySize(v); resetGuestIdle(); });
+      partyGrid.appendChild(b);
+    })(pi);
+  }
+  function setPartySize(v){
+    partySize = Math.max(1, Math.min(20, v));
+    document.getElementById('partyValue').textContent = partySize;
+    var btns = partyGrid.querySelectorAll('.party-btn');
+    for (var i=0;i<btns.length;i++){
+      btns[i].classList.toggle('selected', parseInt(btns[i].textContent,10) === partySize);
+    }
+  }
+  document.getElementById('partyMinus').addEventListener('click', function(){ setPartySize(partySize-1); resetGuestIdle(); });
+  document.getElementById('partyPlus').addEventListener('click', function(){ setPartySize(partySize+1); resetGuestIdle(); });
+  setPartySize(2);
+
+  var fPhone = document.getElementById('fPhone');
+  fPhone.addEventListener('input', function(){
+    fPhone.value = fPhone.value.replace(/\D/g,'').slice(0,10);
+  });
+
+  var fIg = document.getElementById('fIg');
+  fIg.addEventListener('input', function(){
+    fIg.value = fIg.value.replace(/^@+/,'');
+  });
+
+  var fNote = document.getElementById('fNote');
+  var noteCount = document.getElementById('noteCount');
+  fNote.addEventListener('input', function(){
+    noteCount.textContent = fNote.value.length;
+  });
+
+  var guestForm = document.getElementById('guestForm');
+  var formError = document.getElementById('formError');
+  var submitBtn = document.getElementById('submitBtn');
+
+  function resetForm(){
+    guestForm.reset();
+    document.getElementById('fName').value = '';
+    fPhone.value = '';
+    fIg.value = '';
+    fNote.value = '';
+    noteCount.textContent = '0';
+    setPartySize(2);
+    formError.textContent = '';
+    submitBtn.disabled = false;
+    lang = 'zh';
+    applyLang();
+  }
+
+  var guestIdleTimer = null;
+  function resetGuestIdle(){
+    clearTimeout(guestIdleTimer);
+    guestIdleTimer = setTimeout(function(){
+      resetForm();
+    }, GUEST_IDLE_MS);
+  }
+  ['input','change','click'].forEach(function(evt){
+    guestForm.addEventListener(evt, resetGuestIdle);
+  });
+
+  guestForm.addEventListener('submit', function(ev){
+    ev.preventDefault();
+    formError.textContent = '';
+
+    var name = document.getElementById('fName').value.trim();
+    var phone = fPhone.value.trim();
+    var ig = fIg.value.trim();
+    var note = fNote.value.trim();
+
+    if (!name) { formError.textContent = '請填寫稱呼'; return; }
+    if (partySize < 1 || partySize > 20) { formError.textContent = '請確認人數'; return; }
+    if (phone && phone.length !== 10) { formError.textContent = '電話需為 10 碼數字,請改填 Instagram 或確認電話號碼'; return; }
+    if (!phone && !ig) { formError.textContent = '請填寫電話或 Instagram 其中一項'; return; }
+
+    submitBtn.disabled = true;
+    clearTimeout(guestIdleTimer);
+
+    submitEntry({
+      store: STORE_NAME,
+      wait_date: taipeiDateStr(),
+      name: name,
+      party_size: partySize,
+      phone: phone,
+      ig: ig,
+      note: note,
+      status: 'waiting',
+      table_no: null,
+      cancel_reason: null,
+      created_at: new Date().toISOString(),
+      notified_at: null,
+      seated_at: null,
+      cancelled_at: null
+    }, 0);
+  });
+
+  function submitEntry(baseEntry, attempt){
+    dbGetMaxWaitNo(baseEntry.wait_date, function(err, maxNo){
+      if (err) { failSubmit(); return; }
+      var entry = {};
+      for (var k in baseEntry) entry[k] = baseEntry[k];
+      entry.wait_no = maxNo + 1;
+      dbInsertEntry(entry, function(err2, row){
+        if (err2) {
+          if (err2.code === '23505' && attempt < 2) {
+            submitEntry(baseEntry, attempt + 1);
+            return;
+          }
+          failSubmit();
+          return;
+        }
+        onSubmitSuccess(row);
+      });
+    });
+  }
+  function failSubmit(){
+    formError.textContent = '候位系統忙碌中,請稍後再試';
+    submitBtn.disabled = false;
+    resetGuestIdle();
+  }
+
+  /* ================= 候位成功頁 ================= */
+  var currentEntry = null;
+  var successPollTimer = null;
+  var successReturnTimer = null;
+  var successTickCount = 0;
+
+  function onSubmitSuccess(entry){
+    currentEntry = entry;
+    resetForm();
+    document.getElementById('successNo').textContent = entry.wait_no;
+    showScreen('screen-success');
+    successTickCount = 0;
+    updateAheadCount();
+    clearInterval(successPollTimer);
+    successPollTimer = setInterval(function(){
+      successTickCount++;
+      if (successTickCount * (DONE_POLL_MS/1000) >= DONE_SECONDS) {
+        returnToGuest();
+        return;
+      }
+      updateAheadCount();
+    }, DONE_POLL_MS);
+    clearTimeout(successReturnTimer);
+    successReturnTimer = setTimeout(returnToGuest, DONE_SECONDS * 1000);
+  }
+
+  function updateAheadCount(){
+    if (!currentEntry) return;
+    dbGetTodayEntries(function(err, rows){
+      if (err || !currentEntry) return;
+      var ahead = rows.filter(function(r){
+        return (r.status === 'waiting' || r.status === 'notified') && r.wait_no < currentEntry.wait_no;
+      }).length;
+      document.getElementById('aheadCount').textContent = ahead;
+      var aheadWrap = document.getElementById('aheadWrap');
+      var nextMsg = document.getElementById('nextMsg');
+      if (ahead === 0) {
+        aheadWrap.style.display = 'none';
+        nextMsg.style.display = 'block';
+      } else {
+        aheadWrap.style.display = 'block';
+        nextMsg.style.display = 'none';
+      }
+    });
+  }
+
+  function returnToGuest(){
+    clearInterval(successPollTimer);
+    clearTimeout(successReturnTimer);
+    currentEntry = null;
+    document.getElementById('aheadWrap').style.display = 'block';
+    document.getElementById('nextMsg').style.display = 'none';
+    showScreen('screen-guest');
+    resetGuestIdle();
+  }
+  document.getElementById('successBackBtn').addEventListener('click', returnToGuest);
+
+  /* ================= 店員密碼頁 ================= */
+  var pinBuffer = '';
+  var pinDotsEl = document.getElementById('pinDots');
+  var pinErrorEl = document.getElementById('pinError');
+  var keypadEl = document.getElementById('keypad');
+
+  function renderPinDots(){
+    var html = '';
+    for (var i=0;i<STAFF_PIN.length;i++){
+      html += '<div class="pin-dot' + (i < pinBuffer.length ? ' filled' : '') + '"></div>';
+    }
+    pinDotsEl.innerHTML = html;
+  }
+
+  var keys = ['1','2','3','4','5','6','7','8','9','','0','del'];
+  keys.forEach(function(k){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'key-btn' + (k === 'del' ? ' wide' : '');
+    if (k === '') { b.style.visibility = 'hidden'; }
+    b.textContent = k === 'del' ? '清除' : k;
+    b.addEventListener('click', function(){
+      if (k === '') return;
+      if (k === 'del') { pinBuffer = pinBuffer.slice(0, -1); }
+      else if (pinBuffer.length < STAFF_PIN.length) { pinBuffer += k; }
+      renderPinDots();
+      pinErrorEl.textContent = '';
+      if (pinBuffer.length === STAFF_PIN.length) {
+        if (pinBuffer === STAFF_PIN) {
+          pinBuffer = '';
+          renderPinDots();
+          enterStaffDashboard();
+        } else {
+          pinErrorEl.textContent = '密碼錯誤';
+          setTimeout(function(){ pinBuffer = ''; renderPinDots(); }, 500);
+        }
+      }
+    });
+    keypadEl.appendChild(b);
+  });
+  renderPinDots();
+
+  document.getElementById('staffEntry').addEventListener('click', function(){
+    pinBuffer = '';
+    renderPinDots();
+    pinErrorEl.textContent = '';
+    showScreen('screen-staff-gate');
+  });
+  document.getElementById('gateBack').addEventListener('click', function(){
+    showScreen('screen-guest');
+    resetGuestIdle();
+  });
+
+  /* ================= 店員後台 ================= */
+  var staffTab = 'active';
+  var staffSearch = '';
+  var staffPollTimer = null;
+  var staffTickTimer = null;
+  var staffIdleTimer = null;
+  var expandedRowId = null;
+  var expandedRowMode = null; // 'cancel' | 'seat'
+  var lastKnownMaxNo = 0;
+  var lastKnownIds = {};
+  var staffFirstLoad = true;
+
+  function enterStaffDashboard(){
+    showScreen('screen-staff');
+    staffTab = 'active';
+    staffSearch = '';
+    document.getElementById('searchInput').value = '';
+    updateTabButtons();
+    lastKnownIds = {};
+    staffFirstLoad = true;
+    fetchAndRenderStaff();
+    clearInterval(staffPollTimer);
+    staffPollTimer = setInterval(fetchAndRenderStaff, POLL_MS);
+    clearInterval(staffTickTimer);
+    staffTickTimer = setInterval(renderList, 15000);
+    resetStaffIdle();
+  }
+
+  function exitStaffDashboard(){
+    clearInterval(staffPollTimer);
+    clearInterval(staffTickTimer);
+    clearTimeout(staffIdleTimer);
+    expandedRowId = null;
+    showScreen('screen-guest');
+    resetGuestIdle();
+  }
+  document.getElementById('backToGuestBtn').addEventListener('click', exitStaffDashboard);
+
+  function resetStaffIdle(){
+    clearTimeout(staffIdleTimer);
+    staffIdleTimer = setTimeout(exitStaffDashboard, STAFF_IDLE_MS);
+  }
+  ['click','touchstart','keydown','input'].forEach(function(evt){
+    document.getElementById('screen-staff').addEventListener(evt, resetStaffIdle);
+  });
+
+  document.getElementById('tabs').addEventListener('click', function(ev){
+    var btn = ev.target.closest ? ev.target.closest('.tab-btn') : null;
+    if (!btn) return;
+    staffTab = btn.getAttribute('data-tab');
+    updateTabButtons();
+    renderList();
+  });
+  function updateTabButtons(){
+    var btns = document.querySelectorAll('#tabs .tab-btn');
+    for (var i=0;i<btns.length;i++){
+      btns[i].classList.toggle('active', btns[i].getAttribute('data-tab') === staffTab);
+    }
+  }
+  document.getElementById('searchInput').addEventListener('input', function(ev){
+    staffSearch = ev.target.value.trim().toLowerCase();
+    renderList();
+  });
+
+  var staffEntriesCache = [];
+
+  function fetchAndRenderStaff(){
+    dbGetTodayEntries(function(err, rows){
+      if (err) return;
+      if (!staffFirstLoad) {
+        var newOnes = rows.filter(function(r){ return !lastKnownIds[r.id]; });
+        if (newOnes.length) {
+          beep();
+          newOnes.forEach(function(n){ showToast('新候位 ' + n.wait_no + ' 號'); });
+        }
+      }
+      lastKnownIds = {};
+      rows.forEach(function(r){ lastKnownIds[r.id] = true; });
+      staffFirstLoad = false;
+      staffEntriesCache = rows;
+      renderStats(rows);
+      renderList();
+    });
+  }
+
+  function renderStats(rows){
+    var waiting = rows.filter(function(r){ return r.status === 'waiting'; });
+    var notified = rows.filter(function(r){ return r.status === 'notified'; });
+    var seated = rows.filter(function(r){ return r.status === 'seated'; });
+    var cancelled = rows.filter(function(r){ return r.status === 'cancelled'; });
+
+    var waitingPeople = waiting.reduce(function(s,r){ return s + r.party_size; }, 0);
+
+    var avgWait = 0, maxWait = 0;
+    if (seated.length) {
+      var total = 0;
+      seated.forEach(function(r){
+        var m = minutesBetween(r.created_at, r.seated_at);
+        total += m;
+        if (m > maxWait) maxWait = m;
+      });
+      avgWait = Math.round(total / seated.length);
+    }
+
+    var cards = [
+      { num: waiting.length + ' 組 / ' + waitingPeople + ' 人', label: '等待中' },
+      { num: notified.length, label: '已通知' },
+      { num: seated.length, label: '已帶位' },
+      { num: cancelled.length, label: '已取消' },
+      { num: (seated.length ? avgWait + ' 分' : '--'), label: '平均等待' + (seated.length ? '（最長 ' + maxWait + ' 分）' : '') }
+    ];
+
+    var html = '';
+    cards.forEach(function(c){
+      html += '<div class="stat-card"><div class="stat-num serif">' + c.num + '</div><div class="stat-label">' + c.label + '</div></div>';
+    });
+    document.getElementById('statsRow').innerHTML = html;
+  }
+
+  function visibleRows(){
+    var rows = staffEntriesCache.slice();
+    if (staffTab === 'active') {
+      rows = rows.filter(function(r){ return r.status === 'waiting' || r.status === 'notified'; });
+    }
+    if (staffSearch) {
+      rows = rows.filter(function(r){
+        var hay = (r.name + ' ' + r.phone + ' ' + r.ig + ' ' + r.wait_no).toLowerCase();
+        return hay.indexOf(staffSearch) !== -1;
+      });
+    }
+    rows.sort(function(a,b){ return a.wait_no - b.wait_no; });
+    return rows;
+  }
+
+  function aheadCountFor(entry){
+    return staffEntriesCache.filter(function(r){
+      return (r.status === 'waiting' || r.status === 'notified') && r.wait_no < entry.wait_no;
+    }).length;
+  }
+
+  function renderList(){
+    var rows = visibleRows();
+    var wrap = document.getElementById('listWrap');
+    if (!rows.length) {
+      wrap.innerHTML = '<div class="empty-hint">目前沒有候位資料</div>';
+      return;
+    }
+    var html = '';
+    rows.forEach(function(r){
+      html += renderRow(r);
+    });
+    wrap.innerHTML = html;
+    bindRowEvents();
+  }
+
+  function renderRow(r){
+    var meta = STATUS_META[r.status];
+    var dim = (r.status === 'seated' || r.status === 'cancelled') ? ' dim' : '';
+    var isActive = (r.status === 'waiting' || r.status === 'notified');
+    var overtime = r.status === 'notified' && r.notified_at && minutesBetween(r.notified_at) >= NOTIFY_ALERT_MIN;
+    var rowClass = 'entry-row' + dim + (overtime ? ' overtime' : '');
+
+    var ahead = isActive ? aheadCountFor(r) : null;
+    var position = isActive ? (ahead + 1) : null;
+    var waitedEnd = r.seated_at || r.cancelled_at || null;
+    var waitedMin = minutesBetween(r.created_at, waitedEnd);
+
+    var phoneHtml = r.phone ? '<a href="tel:' + escapeHtml(r.phone) + '">' + escapeHtml(r.phone) + '</a>' : '<span>—</span>';
+    var igHtml = r.ig ? '<span class="ig-copy" data-ig="' + escapeHtml(r.ig) + '" style="text-decoration:underline;">@' + escapeHtml(r.ig) + '</span>' : '<span>—</span>';
+
+    var html = '';
+    html += '<div class="' + rowClass + '" data-id="' + r.id + '">';
+    html += '  <div class="entry-top">';
+    html += '    <span class="status-dot" style="background:' + meta.color + '"></span>';
+    html += '    <span class="entry-no serif">' + r.wait_no + '</span>';
+    html += '    <span class="entry-name">' + escapeHtml(r.name) + '</span>';
+    html += '    <span class="entry-meta">' + r.party_size + ' 人 · ' + taipeiHHMM(r.created_at) + '</span>';
+    html += '    <span class="status-label" style="background:' + meta.color + (r.status==='cancelled' ? ';color:#1B1816' : '') + '">' + meta.label + (overtime ? '（過號提醒）' : '') + '</span>';
+    html += '  </div>';
+    html += '  <div class="entry-mid">';
+    html += '    <span>電話:' + phoneHtml + '</span>';
+    html += '    <span>IG:' + igHtml + '</span>';
+    html += '    <span>順位:' + (position !== null ? position : '—') + '</span>';
+    html += '    <span>前方:' + (ahead !== null ? ahead + ' 組' : '—') + '</span>';
+    html += '    <span>已等待:' + waitedMin + ' 分</span>';
+    if (r.table_no) html += '    <span>桌號:' + escapeHtml(r.table_no) + '</span>';
+    if (r.cancel_reason) html += '    <span>取消原因:' + escapeHtml(r.cancel_reason) + '</span>';
+    html += '  </div>';
+    if (r.note) html += '  <div class="entry-note">' + escapeHtml(r.note) + '</div>';
+
+    html += '  <div class="entry-actions">';
+    if (r.status === 'waiting') {
+      html += '    <button type="button" class="act-btn primary" data-act="notify">通知</button>';
+      html += '    <button type="button" class="act-btn danger" data-act="cancel">取消</button>';
+    } else if (r.status === 'notified') {
+      html += '    <button type="button" class="act-btn primary" data-act="seat">帶位</button>';
+      html += '    <button type="button" class="act-btn" data-act="renotify">再次通知</button>';
+      html += '    <button type="button" class="act-btn" data-act="revert">退回等待</button>';
+      html += '    <button type="button" class="act-btn danger" data-act="cancel">取消</button>';
+    } else if (r.status === 'seated' || r.status === 'cancelled') {
+      html += '    <button type="button" class="act-btn" data-act="restore">還原</button>';
+    }
+    html += '  </div>';
+
+    if (expandedRowId === r.id && expandedRowMode === 'cancel') {
+      html += '  <div class="expand-panel"><div class="reason-grid">';
+      CANCEL_REASONS.forEach(function(reason){
+        html += '<button type="button" class="reason-btn" data-reason="' + escapeHtml(reason) + '">' + escapeHtml(reason) + '</button>';
+      });
+      html += '  </div></div>';
+    }
+    if (expandedRowId === r.id && expandedRowMode === 'seat') {
+      html += '  <div class="expand-panel"><div class="seat-input-row">';
+      html += '    <input type="text" id="tableNoInput" placeholder="桌號（可留空）" autocomplete="off">';
+      html += '    <button type="button" class="act-btn primary" data-act="confirm-seat">確認帶位</button>';
+      html += '    <button type="button" class="act-btn" data-act="cancel-seat">取消</button>';
+      html += '  </div></div>';
+    }
+
+    html += '</div>';
+    return html;
+  }
+
+  function bindRowEvents(){
+    var wrap = document.getElementById('listWrap');
+    var rowsEls = wrap.querySelectorAll('.entry-row');
+    for (var i=0;i<rowsEls.length;i++){
+      (function(rowEl){
+        var id = rowEl.getAttribute('data-id');
+        var entry = staffEntriesCache.filter(function(r){ return r.id === id; })[0];
+        if (!entry) return;
+
+        var igEl = rowEl.querySelector('.ig-copy');
+        if (igEl) {
+          igEl.addEventListener('click', function(){
+            copyToClipboard('@' + igEl.getAttribute('data-ig'));
+            showToast('已複製 Instagram');
+          });
+        }
+
+        var buttons = rowEl.querySelectorAll('[data-act]');
+        for (var j=0;j<buttons.length;j++){
+          buttons[j].addEventListener('click', function(ev){
+            handleAction(entry, ev.currentTarget.getAttribute('data-act'), rowEl);
+          });
+        }
+
+        var reasonBtns = rowEl.querySelectorAll('[data-reason]');
+        for (var k=0;k<reasonBtns.length;k++){
+          reasonBtns[k].addEventListener('click', function(ev){
+            doCancel(entry, ev.currentTarget.getAttribute('data-reason'));
+          });
+        }
+      })(rowsEls[i]);
+    }
+  }
+
+  function handleAction(entry, act, rowEl){
+    if (act === 'notify') { doNotify(entry); return; }
+    if (act === 'renotify') { doRenotify(entry); return; }
+    if (act === 'restore') { doRestore(entry); return; }
+    if (act === 'revert') { doRevertToWaiting(entry); return; }
+    if (act === 'cancel') {
+      expandedRowId = entry.id; expandedRowMode = 'cancel';
+      renderList();
+      return;
+    }
+    if (act === 'seat') {
+      expandedRowId = entry.id; expandedRowMode = 'seat';
+      renderList();
+      return;
+    }
+    if (act === 'cancel-seat') {
+      expandedRowId = null; expandedRowMode = null;
+      renderList();
+      return;
+    }
+    if (act === 'confirm-seat') {
+      var input = document.getElementById('tableNoInput');
+      doSeat(entry, input ? input.value.trim() : '');
+      return;
+    }
+  }
+
+  function applyUpdate(entry, expectedStatus, patch, logNote, toStatus){
+    dbConditionalUpdate(entry.id, expectedStatus, patch, function(err, rows){
+      if (err || !rows.length) {
+        showToast('此筆資料剛被其他人更新');
+        expandedRowId = null; expandedRowMode = null;
+        fetchAndRenderStaff();
+        return;
+      }
+      dbInsertLog({
+        entry_id: entry.id,
+        from_status: expectedStatus,
+        to_status: toStatus,
+        note: logNote || null,
+        changed_at: new Date().toISOString()
+      });
+      expandedRowId = null; expandedRowMode = null;
+      fetchAndRenderStaff();
+    });
+  }
+
+  function doNotify(entry){
+    applyUpdate(entry, 'waiting', { status:'notified', notified_at: new Date().toISOString() }, null, 'notified');
+    copyToClipboard(buildNotifyMsg(entry.wait_no));
+    showToast('已複製通知訊息');
+  }
+  function doRenotify(entry){
+    applyUpdate(entry, 'notified', { notified_at: new Date().toISOString() }, '再次通知', 'notified');
+    copyToClipboard(buildNotifyMsg(entry.wait_no));
+    showToast('已複製通知訊息');
+  }
+  function doRevertToWaiting(entry){
+    applyUpdate(entry, 'notified', { status:'waiting', notified_at: null }, null, 'waiting');
+  }
+  function doSeat(entry, tableNo){
+    applyUpdate(entry, 'notified', { status:'seated', seated_at: new Date().toISOString(), table_no: tableNo || null }, null, 'seated');
+  }
+  function doCancel(entry, reason){
+    applyUpdate(entry, entry.status, { status:'cancelled', cancelled_at: new Date().toISOString(), cancel_reason: reason }, reason, 'cancelled');
+  }
+  function doRestore(entry){
+    var patch = { status:'waiting', notified_at:null, seated_at:null, cancelled_at:null, table_no:null, cancel_reason:null };
+    applyUpdate(entry, entry.status, patch, '還原', 'waiting');
+  }
+
+  /* ================= 初始 ================= */
+  applyLang();
+  resetGuestIdle();
+})();
+</script>
+</body>
+</html>
