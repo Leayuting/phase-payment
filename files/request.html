@@ -224,6 +224,14 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="history-log-modal" onclick="if(event.target.id==='history-log-modal')closeHistoryLog()">
+  <div class="modal-box" style="width:440px">
+    <h3>審核歷程</h3>
+    <div id="history-log-body"></div>
+    <div class="mactions"><button class="btn btn-outline" onclick="closeHistoryLog()">關閉</button></div>
+  </div>
+</div>
+
 <div class="tabs">
   <div class="tab active" data-panel="submit">提出申請</div>
   <div class="tab" data-panel="review">審核與撥款<span class="tab-badge" id="tab-badge-review"></span></div>
@@ -289,6 +297,10 @@
         </div>
         <div class="full">
           <label class="form-label">附件（廠商報價單／匯款資訊／發票，可多選，圖片或 PDF）</label>
+          <div id="existing-attachments" style="display:none; margin-bottom:8px;">
+            <div class="form-label" style="margin-bottom:6px;">原有附件</div>
+            <div id="existing-attachments-list" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
+          </div>
           <input class="form-input" type="file" id="f-files" multiple accept="image/*,.pdf">
           <div id="file-preview" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;"></div>
         </div>
@@ -576,6 +588,21 @@
   }
 
   // ---- 本機身份（輕量級：只用來決定「我的申請」要不要顯示編輯/取消鈕，不是真的登入） ----
+  // ---- 審核歷程（history）共用工具 ----
+  var ACTION_LABELS = {submitted:'送出申請', edited:'編輯', resubmitted:'重新送審', rejected:'退回', approved:'核准', paid:'撥款'};
+  function historyEntry(action, note, by){
+    return {action:action, at:new Date().toISOString(), by:by||null, note:note||null};
+  }
+  function getReviewerName(){
+    var n = localStorage.getItem('phase_reviewer_name') || '';
+    if(!n){
+      n = prompt('請輸入你的姓名（會記錄在審核歷程中）：') || '';
+      n = n.trim();
+      if(n) localStorage.setItem('phase_reviewer_name', n);
+    }
+    return n;
+  }
+
   function getMyName(){ return localStorage.getItem('phase_my_name') || ''; }
   function ensureMyName(){
     var n = getMyName();
@@ -606,6 +633,7 @@
     document.getElementById('f-files').value = '';
     pendingFiles = [];
     renderFilePreview();
+    document.getElementById('existing-attachments').style.display = 'none';
     document.getElementById('btn-submit').textContent = '送出申請';
     document.getElementById('submit-form-title').textContent = '新增請款申請';
     document.getElementById('btn-cancel-edit').style.display = 'none';
@@ -613,7 +641,7 @@
   window.editMyRequest = function(id){
     var r = requests.find(function(x){ return x.id===id; });
     if(!r) return;
-    if(r.status!=='待審核'){ alert('這筆申請已經被處理，無法再編輯'); return; }
+    if(r.status!=='待審核' && r.status!=='已退回'){ alert('這筆申請已經被處理，無法再編輯'); return; }
     if(r.applicant!==getMyName()){ alert('只能編輯自己的申請'); return; }
     editingId = id;
     document.getElementById('f-store').value = r.store || '中山';
@@ -627,8 +655,16 @@
     document.getElementById('f-invoice').value = r.invoice_status || '後補';
     pendingFiles = [];
     renderFilePreview();
-    document.getElementById('submit-form-title').textContent = '編輯請款申請';
-    document.getElementById('btn-submit').textContent = '儲存變更';
+    var existingWrap = document.getElementById('existing-attachments');
+    if(r.attachment_urls && r.attachment_urls.length){
+      document.getElementById('existing-attachments-list').innerHTML = attachHtml(r.attachment_urls);
+      existingWrap.style.display = 'block';
+    }else{
+      existingWrap.style.display = 'none';
+    }
+    var isRejected = (r.status==='已退回');
+    document.getElementById('submit-form-title').textContent = isRejected ? '修改並重新送審' : '編輯請款申請';
+    document.getElementById('btn-submit').textContent = isRejected ? '重新送出' : '儲存變更';
     document.getElementById('btn-cancel-edit').style.display = 'inline-block';
     activateTab('submit');
     window.scrollTo({top:0, behavior:'smooth'});
@@ -673,6 +709,28 @@
     document.getElementById('finance-edit-modal').style.display = 'flex';
   };
   window.closeFinanceEdit = function(){ document.getElementById('finance-edit-modal').style.display = 'none'; };
+
+  window.viewRejectReason = function(id){
+    var r = requests.find(function(x){ return x.id===id; });
+    if(!r) return;
+    var hist = r.history || [];
+    var body = document.getElementById('history-log-body');
+    if(!hist.length){
+      body.innerHTML = '<div class="empty">尚無歷程紀錄'+(r.approver_note ? '，退回原因：'+r.approver_note : '')+'</div>';
+    }else{
+      body.innerHTML = hist.map(function(h){
+        var line = '<div style="padding:8px 0; border-bottom:1px solid var(--border); font-size:13px;">';
+        line += '<b>'+(ACTION_LABELS[h.action]||h.action)+'</b>';
+        line += ' <span style="color:var(--sub); font-size:11px;">'+(h.at ? h.at.slice(0,16).replace('T',' ') : '')+'</span>';
+        if(h.by) line += '<br><span style="color:var(--sub);">操作人：'+h.by+'</span>';
+        if(h.note) line += '<br><span style="color:var(--red);">原因：'+h.note+'</span>';
+        line += '</div>';
+        return line;
+      }).join('');
+    }
+    document.getElementById('history-log-modal').style.display = 'flex';
+  };
+  window.closeHistoryLog = function(){ document.getElementById('history-log-modal').style.display = 'none'; };
 
   window.saveFinanceEdit = async function(){
     if(!isFinanceUnlocked()){ alert('撥款密碼已失效，請重新解鎖'); return; }
@@ -728,24 +786,24 @@
       return;
     }
 
+    var existing = null;
     if(editingId!==null){
-      var existing = requests.find(function(x){ return x.id===editingId; });
-      if(!existing || existing.status!=='待審核' || existing.applicant!==getMyName()){
+      existing = requests.find(function(x){ return x.id===editingId; });
+      if(!existing || (existing.status!=='待審核' && existing.status!=='已退回') || existing.applicant!==getMyName()){
         alert('這筆申請已經無法編輯（可能已被處理，或不是你自己的申請）');
         resetSubmitForm();
         return;
       }
     }
+    var wasRejected = existing && existing.status==='已退回';
 
     var btn = document.getElementById('btn-submit');
-    btn.disabled = true; btn.textContent = editingId!==null ? '儲存中...' : '送出中...';
+    btn.disabled = true; btn.textContent = editingId!==null ? (wasRejected?'送出中...':'儲存中...') : '送出中...';
 
     try{
       await ensureVendor(vendor);
 
-      var attachmentUrls = editingId!==null
-        ? (requests.find(function(x){return x.id===editingId;}).attachment_urls || []).slice()
-        : [];
+      var attachmentUrls = editingId!==null ? (existing.attachment_urls || []).slice() : [];
       if(pendingFiles.length){
         btn.textContent = '上傳附件中...';
         attachmentUrls = attachmentUrls.concat(await uploadAttachments(pendingFiles));
@@ -760,17 +818,31 @@
       };
 
       if(editingId!==null){
+        var hist = (existing.history || []).slice();
+        if(wasRejected){
+          payload.status = '待審核';
+          hist.push(historyEntry('resubmitted', null, applicant));
+        }else{
+          hist.push(historyEntry('edited', null, applicant));
+        }
+        payload.history = hist;
         var res = await sb.from('requests').update(payload).eq('id', editingId);
         if(res.error) throw res.error;
-        alert('已儲存變更');
+        resetSubmitForm();
+        if(wasRejected){
+          activateTab('history');
+          alert('請款已重新送出，等待審核。');
+        }else{
+          alert('已儲存變更');
+        }
       }else{
         payload.status = '待審核';
+        payload.history = [historyEntry('submitted', null, applicant)];
         var res2 = await sb.from('requests').insert([payload]);
         if(res2.error) throw res2.error;
+        resetSubmitForm();
         alert('申請已送出，等待主管審核');
       }
-
-      resetSubmitForm();
     }catch(e){
       console.error(e);
       alert('送出失敗，請確認 Supabase 資料表與 Storage bucket 已建立（見部署說明）');
@@ -820,6 +892,12 @@
         actions += '<div class="req-actions">'
           + '<button class="btn btn-outline btn-sm" onclick="editMyRequest('+r.id+')">✎ 編輯</button>'
           + '<button class="btn btn-reject btn-sm" onclick="cancelMyRequest('+r.id+')">取消申請</button>'
+          + '</div>';
+      }
+      if(r.status==='已退回'){
+        actions += '<div class="req-actions">'
+          + '<button class="btn btn-outline btn-sm" onclick="viewRejectReason('+r.id+')">📄 查看退回原因</button>'
+          + '<button class="btn btn-outline btn-sm" onclick="editMyRequest('+r.id+')">✎ 重新編輯</button>'
           + '</div>';
       }
       if(r.status==='待審核' || r.status==='已退回' || r.status==='已取消'){
@@ -1017,12 +1095,20 @@
 
   window.approveReq = async function(id){
     if(!isReviewerUnlocked()){ alert('請先輸入審核密碼'); return; }
-    await sb.from('requests').update({status:'已核准', updated_at:new Date().toISOString()}).eq('id', id);
+    var r = requests.find(function(x){ return x.id===id; });
+    var reviewer = getReviewerName();
+    var hist = ((r&&r.history)||[]).concat([historyEntry('approved', null, reviewer)]);
+    await sb.from('requests').update({status:'已核准', history:hist, updated_at:new Date().toISOString()}).eq('id', id);
   };
   window.rejectReq = async function(id){
     if(!isReviewerUnlocked()){ alert('請先輸入審核密碼'); return; }
-    var note = prompt('退回原因（選填）：') || '';
-    await sb.from('requests').update({status:'已退回', approver_note:note, updated_at:new Date().toISOString()}).eq('id', id);
+    var note = prompt('請輸入退回原因（必填）：') || '';
+    note = note.trim();
+    if(!note){ alert('退回原因為必填，請重新操作'); return; }
+    var r = requests.find(function(x){ return x.id===id; });
+    var reviewer = getReviewerName();
+    var hist = ((r&&r.history)||[]).concat([historyEntry('rejected', note, reviewer)]);
+    await sb.from('requests').update({status:'已退回', approver_note:note, history:hist, updated_at:new Date().toISOString()}).eq('id', id);
   };
 
   async function payOne(r){
@@ -1038,8 +1124,9 @@
     }]).select();
     if(insertRes.error) throw insertRes.error;
     var newRecordId = insertRes.data && insertRes.data[0] && insertRes.data[0].id;
+    var hist = (r.history||[]).concat([historyEntry('paid', null, null)]);
     await sb.from('requests').update({
-      status:'已撥款', payment_record_id:newRecordId, updated_at:new Date().toISOString()
+      status:'已撥款', payment_record_id:newRecordId, history:hist, updated_at:new Date().toISOString()
     }).eq('id', r.id);
   }
 
@@ -1070,8 +1157,10 @@
     var targets = requests.filter(function(r){ return r.status==='待審核' && selectedPending.has(r.id); });
     if(!targets.length){ alert('請先勾選要核准的項目'); return; }
     if(!confirm('確定要核准選取的 '+targets.length+' 筆申請嗎？')) return;
+    var reviewer = getReviewerName();
     for(var i=0;i<targets.length;i++){
-      await sb.from('requests').update({status:'已核准', updated_at:new Date().toISOString()}).eq('id', targets[i].id);
+      var hist = (targets[i].history||[]).concat([historyEntry('approved', null, reviewer)]);
+      await sb.from('requests').update({status:'已核准', history:hist, updated_at:new Date().toISOString()}).eq('id', targets[i].id);
     }
     selectedPending.clear();
   };
@@ -1080,10 +1169,14 @@
     if(!isReviewerUnlocked()){ alert('請先輸入審核密碼'); return; }
     var targets = requests.filter(function(r){ return r.status==='待審核' && selectedPending.has(r.id); });
     if(!targets.length){ alert('請先勾選要退回的項目'); return; }
-    var note = prompt('退回原因（選填，套用到所有選取項目）：') || '';
+    var note = prompt('請輸入退回原因（必填，套用到所有選取項目）：') || '';
+    note = note.trim();
+    if(!note){ alert('退回原因為必填，請重新操作'); return; }
     if(!confirm('確定要退回選取的 '+targets.length+' 筆申請嗎？')) return;
+    var reviewer = getReviewerName();
     for(var i=0;i<targets.length;i++){
-      await sb.from('requests').update({status:'已退回', approver_note:note, updated_at:new Date().toISOString()}).eq('id', targets[i].id);
+      var hist = (targets[i].history||[]).concat([historyEntry('rejected', note, reviewer)]);
+      await sb.from('requests').update({status:'已退回', approver_note:note, history:hist, updated_at:new Date().toISOString()}).eq('id', targets[i].id);
     }
     selectedPending.clear();
   };
