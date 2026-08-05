@@ -406,6 +406,14 @@
         <button class="btn btn-outline" id="btn-history-bank" onclick="toggleHistoryBankMode()">🏦 匯款資訊</button>
         <button class="btn btn-outline" onclick="exportHistoryExcel()">📊 匯出 Excel</button>
       </div>
+      <div class="store-filter" id="history-status-filter">
+        <button class="chip active" data-status="全部">全部</button>
+        <button class="chip" data-status="待審核">待審核</button>
+        <button class="chip" data-status="已核准">已核准</button>
+        <button class="chip" data-status="已撥款">已撥款</button>
+        <button class="chip" data-status="已退回">已退回</button>
+        <button class="chip" data-status="已取消">已取消</button>
+      </div>
       <h3 id="history-title">申請紀錄</h3>
       <div id="list-history"><div class="empty">尚無資料</div></div>
     </div>
@@ -529,6 +537,19 @@
   }
   wireStoreChips('review-store-filter', function(v){ storeFilter = v; renderReview(); });
   wireStoreChips('invoice-store-filter', function(v){ invoiceStoreFilter = v; renderInvoiceTracking(); });
+
+  var historyStatusFilter = '全部';
+  (function(){
+    var chips = document.querySelectorAll('#history-status-filter .chip');
+    chips.forEach(function(c){
+      c.onclick = function(){
+        chips.forEach(function(x){x.classList.remove('active');});
+        c.classList.add('active');
+        historyStatusFilter = c.dataset.status;
+        renderHistory();
+      };
+    });
+  })();
 
   // ---- file preview（多次選檔會累加，不會蓋掉前面選的檔案） ----
   var pendingFiles = [];
@@ -1231,6 +1252,8 @@
     btn.textContent = historyShowPaidOnly ? '← 返回月份紀錄' : '🏦 匯款資訊';
     document.getElementById('history-month').disabled = historyShowPaidOnly;
     document.getElementById('history-day').disabled = historyShowPaidOnly;
+    document.getElementById('history-status-filter').style.opacity = historyShowPaidOnly ? '.4' : '1';
+    document.getElementById('history-status-filter').style.pointerEvents = historyShowPaidOnly ? 'none' : 'auto';
     renderHistory();
   }
   function getHistoryList(){
@@ -1246,6 +1269,9 @@
     }else{
       var month = monthInput ? monthInput.value : new Date().toISOString().slice(0,7);
       list = requests.filter(function(r){ return (r.created_at||'').slice(0,7)===month; });
+    }
+    if(!historyShowPaidOnly && historyStatusFilter && historyStatusFilter!=='全部'){
+      list = list.filter(function(r){ return r.status===historyStatusFilter; });
     }
     return list.slice().sort(function(a,b){ return new Date(b.created_at)-new Date(a.created_at); });
   }
