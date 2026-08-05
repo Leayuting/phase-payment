@@ -1,0 +1,14 @@
+{
+  "name": "門店候位系統 - Phase Coffee Roasters",
+  "short_name": "候位系統",
+  "start_url": "./waitlist.html",
+  "scope": "./waitlist.html",
+  "display": "standalone",
+  "background_color": "#F6F2EB",
+  "theme_color": "#A9754A",
+  "lang": "zh-TW",
+  "icons": [
+    { "src": "icons/waitlist-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/waitlist-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

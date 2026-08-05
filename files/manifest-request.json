@@ -1,0 +1,14 @@
+{
+  "name": "請款申請 - Phase Coffee Roasters",
+  "short_name": "請款申請",
+  "start_url": "./request.html",
+  "scope": "./request.html",
+  "display": "standalone",
+  "background_color": "#F6F2EB",
+  "theme_color": "#4E5747",
+  "lang": "zh-TW",
+  "icons": [
+    { "src": "icons/request-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/request-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
