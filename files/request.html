@@ -6,7 +6,7 @@
 <title>PHASE｜請款申請</title>
 <link rel="manifest" href="manifest-request.json">
 <link rel="apple-touch-icon" href="icons/request-192.png">
-<meta name="theme-color" content="#691711">
+<meta name="theme-color" content="#4E5747">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="請款申請">
@@ -397,6 +397,12 @@
           <label class="form-label">選擇月份</label>
           <input class="form-input" type="month" id="history-month" style="max-width:170px;">
         </div>
+        <div>
+          <label class="form-label">或指定日期</label>
+          <input class="form-input" type="date" id="history-day" style="max-width:170px;">
+        </div>
+        <button class="btn btn-outline" onclick="jumpToToday()">📅 今天</button>
+        <button class="btn btn-outline" onclick="clearHistoryDay()">✕ 清除日期</button>
         <button class="btn btn-outline" id="btn-history-bank" onclick="toggleHistoryBankMode()">🏦 匯款資訊</button>
         <button class="btn btn-outline" onclick="exportHistoryExcel()">📊 匯出 Excel</button>
       </div>
@@ -1224,14 +1230,19 @@
     var btn = document.getElementById('btn-history-bank');
     btn.textContent = historyShowPaidOnly ? '← 返回月份紀錄' : '🏦 匯款資訊';
     document.getElementById('history-month').disabled = historyShowPaidOnly;
+    document.getElementById('history-day').disabled = historyShowPaidOnly;
     renderHistory();
   }
   function getHistoryList(){
     var monthInput = document.getElementById('history-month');
+    var dayInput = document.getElementById('history-day');
     if(monthInput && !monthInput.value) monthInput.value = new Date().toISOString().slice(0,7);
     var list;
     if(historyShowPaidOnly){
       list = requests.filter(function(r){ return r.status==='已撥款'; });
+    }else if(dayInput && dayInput.value){
+      var day = dayInput.value;
+      list = requests.filter(function(r){ return (r.created_at||'').slice(0,10)===day; });
     }else{
       var month = monthInput ? monthInput.value : new Date().toISOString().slice(0,7);
       list = requests.filter(function(r){ return (r.created_at||'').slice(0,7)===month; });
@@ -1241,15 +1252,31 @@
 
   function renderHistory(){
     var monthInput = document.getElementById('history-month');
+    var dayInput = document.getElementById('history-day');
     if(!monthInput) return;
     var titleEl = document.getElementById('history-title');
     var el = document.getElementById('list-history');
     var list = getHistoryList();
-    titleEl.textContent = historyShowPaidOnly ? '已完成匯款資料（全部）' : (monthInput.value+' 申請紀錄');
+    if(historyShowPaidOnly){
+      titleEl.textContent = '已完成匯款資料（全部）';
+    }else if(dayInput && dayInput.value){
+      titleEl.textContent = dayInput.value+' 申請紀錄';
+    }else{
+      titleEl.textContent = monthInput.value+' 申請紀錄';
+    }
     el.innerHTML = list.length
       ? list.map(function(r){ return reqCardHtml(r, {mine:true, showBank: r.status==='已撥款', showFinanceEdit:true}); }).join('')
       : '<div class="empty">沒有符合條件的資料</div>';
   }
+  window.jumpToToday = function(){
+    document.getElementById('history-day').value = new Date().toISOString().slice(0,10);
+    renderHistory();
+  };
+  window.clearHistoryDay = function(){
+    document.getElementById('history-day').value = '';
+    renderHistory();
+  };
+  document.getElementById('history-day').addEventListener('change', renderHistory);
 
   function exportHistoryExcel(){
     var list = getHistoryList();
@@ -1277,7 +1304,8 @@
     ];
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '請款紀錄');
-    var label = historyShowPaidOnly ? '已完成匯款' : document.getElementById('history-month').value;
+    var dayInput = document.getElementById('history-day');
+    var label = historyShowPaidOnly ? '已完成匯款' : ((dayInput && dayInput.value) ? dayInput.value : document.getElementById('history-month').value);
     XLSX.writeFile(wb, '請款申請_'+label+'_'+new Date().toISOString().slice(0,10)+'.xlsx');
   }
   document.getElementById('history-month').addEventListener('change', renderHistory);
