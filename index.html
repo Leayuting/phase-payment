@@ -692,6 +692,17 @@ async function saveRecord(){
 function openDel(id){delId=id;document.getElementById('del-modal').style.display='flex';}
 function closeDelModal(){delId=null;document.getElementById('del-modal').style.display='none';}
 async function confirmDelete(){
+  // 如果這筆匯款紀錄是請款申請撥款產生的，先清掉對應請款單的關聯，
+  // 避免請款那邊留著「已撥款」卻指向一筆已經被刪除的紀錄
+  try{
+    var linked = await sb.from('requests').select('id,history').eq('payment_record_id', delId);
+    if(linked.data && linked.data.length){
+      for(var i=0;i<linked.data.length;i++){
+        var hist=(linked.data[i].history||[]).concat([{action:'finance_edit',at:new Date().toISOString(),by:null,note:'對應的廠商匯款紀錄已被刪除，關聯已清除'}]);
+        await sb.from('requests').update({payment_record_id:null,history:hist}).eq('id',linked.data[i].id);
+      }
+    }
+  }catch(e){ console.error('清除請款申請關聯失敗', e); }
   var res=await sb.from('records').delete().eq('id',delId);
   if(res.error){alert('刪除失敗：'+res.error.message);}
   else{records=records.filter(function(r){return r.id!==delId;});render();}

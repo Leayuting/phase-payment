@@ -631,7 +631,7 @@
 
   // ---- 本機身份（輕量級：只用來決定「我的申請」要不要顯示編輯/取消鈕，不是真的登入） ----
   // ---- 審核歷程（history）共用工具 ----
-  var ACTION_LABELS = {submitted:'送出申請', edited:'編輯', resubmitted:'重新送審', rejected:'退回', approved:'核准', paid:'撥款'};
+  var ACTION_LABELS = {submitted:'送出申請', edited:'編輯', resubmitted:'重新送審', rejected:'退回', approved:'核准', paid:'撥款', cancelled:'申請人取消', finance_edit:'財務編輯'};
   function historyEntry(action, note, by){
     return {action:action, at:new Date().toISOString(), by:by||null, note:note||null};
   }
@@ -641,6 +641,15 @@
       n = prompt('請輸入你的姓名（會記錄在審核歷程中）：') || '';
       n = n.trim();
       if(n) localStorage.setItem('phase_reviewer_name', n);
+    }
+    return n;
+  }
+  function getFinanceName(){
+    var n = localStorage.getItem('phase_finance_name') || '';
+    if(!n){
+      n = prompt('請輸入你的姓名（會記錄在審核歷程中）：') || '';
+      n = n.trim();
+      if(n) localStorage.setItem('phase_finance_name', n);
     }
     return n;
   }
@@ -717,7 +726,8 @@
     if(r.status!=='待審核'){ alert('這筆申請已經被處理，無法取消'); return; }
     if(r.applicant!==getMyName()){ alert('只能取消自己的申請'); return; }
     if(!confirm('確定要取消這筆申請嗎？')) return;
-    await sb.from('requests').update({status:'已取消', updated_at:new Date().toISOString()}).eq('id', id);
+    var hist = (r.history||[]).concat([historyEntry('cancelled', null, r.applicant)]);
+    await sb.from('requests').update({status:'已取消', history:hist, updated_at:new Date().toISOString()}).eq('id', id);
   };
   window.deleteMyRequest = async function(id){
     var r = requests.find(function(x){ return x.id===id; });
@@ -779,7 +789,7 @@
     var r = requests.find(function(x){ return x.id===financeEditId; });
     if(!r) return;
     var newStatus = document.getElementById('fe-status').value;
-    var payload = {
+    var editedFields = {
       store: document.getElementById('fe-store').value,
       applicant: document.getElementById('fe-applicant').value.trim(),
       vendor: document.getElementById('fe-vendor').value.trim(),
@@ -788,10 +798,11 @@
       account_name: document.getElementById('fe-accname').value.trim(),
       bank_name: document.getElementById('fe-bankname').value.trim(),
       bank_account: document.getElementById('fe-bankaccount').value.trim(),
-      invoice_status: document.getElementById('fe-invoice').value,
-      status: newStatus,
-      updated_at: new Date().toISOString()
+      invoice_status: document.getElementById('fe-invoice').value
     };
+    var financeName = getFinanceName();
+
+    // 已撥款 → 其他狀態：詢問是否一併刪除廠商匯款紀錄裡對應的那一筆（例如銀行實際退匯的情況）
     if(r.status==='已撥款' && newStatus!=='已撥款' && r.payment_record_id){
       var alsoDelete = confirm('這筆原本是「已撥款」，現在改成「'+newStatus+'」。\n是否同時刪除已經建立在「廠商匯款紀錄」裡對應的那一筆？\n（例如：款項實際被銀行退匯時應該選「確定」）');
       if(alsoDelete){
@@ -800,10 +811,31 @@
           document.getElementById('finance-edit-status').textContent = '刪除匯款紀錄失敗：'+delRes.error.message;
           return;
         }
-        payload.payment_record_id = null;
+        editedFields.payment_record_id = null;
       }
     }
-    var res = await sb.from('requests').update(payload).eq('id', financeEditId);
+
+    // 其他狀態 → 已撥款：如果還沒有連動的匯款紀錄，走跟正常撥款相同的 payOne()，
+    // 避免出現「顯示已撥款、廠商匯款紀錄卻查無此筆」的資料落差
+    if(newStatus==='已撥款' && r.status!=='已撥款' && !r.payment_record_id){
+      try{ await payOne(Object.assign({}, r, editedFields)); }
+      catch(e){
+        document.getElementById('finance-edit-status').textContent = '轉入匯款紀錄失敗：'+(e.message||e);
+        return;
+      }
+      var res2 = await sb.from('requests').update(editedFields).eq('id', financeEditId);
+      if(res2.error){
+        document.getElementById('finance-edit-status').textContent = '儲存失敗：'+res2.error.message;
+        return;
+      }
+      closeFinanceEdit();
+      return;
+    }
+
+    editedFields.status = newStatus;
+    editedFields.updated_at = new Date().toISOString();
+    editedFields.history = (r.history||[]).concat([historyEntry('finance_edit', null, financeName)]);
+    var res = await sb.from('requests').update(editedFields).eq('id', financeEditId);
     if(res.error){
       document.getElementById('finance-edit-status').textContent = '儲存失敗：'+res.error.message;
       return;
