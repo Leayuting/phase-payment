@@ -1,0 +1,17 @@
+{
+  "name": "PHASE 出勤管理系統",
+  "short_name": "PHASE出勤",
+  "description": "Phase Coffee Roasters 員工出勤打卡、請假、排休系統",
+  "start_url": "./attendance.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F5F2EE",
+  "theme_color": "#B5402A",
+  "icons": [
+    { "src": "icons/attendance-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/attendance-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/attendance-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/attendance-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

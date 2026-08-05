@@ -12,6 +12,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>PHASE — 出勤管理系統</title>
+<link rel="manifest" href="attendance-manifest.json">
+<link rel="apple-touch-icon" href="icons/attendance-apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/attendance-icon-192.png">
+<meta name="theme-color" content="#B5402A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PHASE出勤">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -83,6 +91,13 @@ body{margin:0;}
   // ==== 換成你自己的 Supabase 專案設定（Project Settings → API） ====
   window.__SUPABASE_URL__ = "https://afzzfdvybwwattbvmenm.supabase.co";
   window.__SUPABASE_ANON_KEY__ = "sb_publishable_lrErpKLvui4-KYkZsP_91w_5PohlyTn";
+
+  // PWA：註冊 service worker（只為了讓「加入主畫面」可以裝成 App，不做離線快取）
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("attendance-sw.js").catch(() => {});
+    });
+  }
 </script>
 
 <script type="text/plain" id="app-source">
