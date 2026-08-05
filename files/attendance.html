@@ -344,6 +344,7 @@ function ClockCard({ me, myRec, myOutings, myLeavesToday, now, departments, onCl
   const purposeOptional = cat === "store_support" || cat === "meeting";
   const [addDestOpen, setAddDestOpen] = useState(false);
   const [newDest, setNewDest] = useState("");
+  const [newDestPurpose, setNewDestPurpose] = useState("");
   const segCount = myRec?.sessions?.length ?? 0;
   return (
     <div className="card p-6">
@@ -364,7 +365,7 @@ function ClockCard({ me, myRec, myOutings, myLeavesToday, now, departments, onCl
           {segCount > 0 && !open ? "再次上班打卡" : "上班打卡"}
         </button>
         <button className="btn btn-line" disabled={!open || !!activeOut} onClick={() => setShowOut(true)}>外出登記</button>
-        {activeOut && <button className="btn btn-line" onClick={() => { setNewDest(""); setAddDestOpen(true); }}>臨時加地點</button>}
+        {activeOut && <button className="btn btn-line" onClick={() => { setNewDest(""); setNewDestPurpose(""); setAddDestOpen(true); }}>臨時加地點</button>}
         {activeOut && !activeOut.arrivedAt && <button className="btn btn-line" onClick={onOutArrive}>到達</button>}
         {activeOut && <button className="btn btn-brick" onClick={onOutEnd}>返回</button>}
         <button className="btn btn-line" disabled={!open || !!activeOut} onClick={onClockOut}>下班打卡</button>
@@ -449,8 +450,12 @@ function ClockCard({ me, myRec, myOutings, myLeavesToday, now, departments, onCl
               <label className="text-xs" style={{ color: "#8B857C" }}>要加去的地點</label>
               <input className="inp mt-1" value={newDest} onChange={(e) => setNewDest(e.target.value)} placeholder="例：郵局" />
             </div>
-            <button className="btn btn-ink w-full" disabled={!newDest.trim()}
-              onClick={() => { onAddDestination(activeOut, newDest.trim()); setAddDestOpen(false); }}>
+            <div>
+              <label className="text-xs" style={{ color: "#8B857C" }}>這一站的目的</label>
+              <input className="inp mt-1" value={newDestPurpose} onChange={(e) => setNewDestPurpose(e.target.value)} placeholder="例：寄信" />
+            </div>
+            <button className="btn btn-ink w-full" disabled={!newDest.trim() || !newDestPurpose.trim()}
+              onClick={() => { onAddDestination(activeOut, newDest.trim(), newDestPurpose.trim()); setAddDestOpen(false); }}>
               加入地點
             </button>
           </div>
@@ -1838,8 +1843,8 @@ function PhaseAttendance() {
     setToast("已完成返回，狀態恢復為已上班");
     loadAll();
   };
-  const addDestination = async (outing, extraDest) => {
-    const newDestination = `${outing.destination} → ${extraDest}`;
+  const addDestination = async (outing, extraDest, extraPurpose) => {
+    const newDestination = `${outing.destination} → ${extraDest}（${extraPurpose}）`;
     const { error } = await sb.from("outings").update({ destination: newDestination }).eq("id", outing.id);
     if (error) { setToast("新增地點失敗：" + error.message); return; }
     setToast("已加入地點");
