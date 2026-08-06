@@ -1132,12 +1132,24 @@
         invoice_file_urls: allUrls
       }).eq('id', id);
       if(res.error) throw res.error;
+      notifyInvoiceUploaded(existing, urls.length);
     }catch(e){
       console.error(e);
       alert('上傳失敗，請確認 records 資料表是否已新增 invoice_file_urls 欄位：\n'+(e.message||e));
       btn.disabled = false; btn.textContent = '上傳電子檔並標記完成';
     }
   };
+
+  // 補發票電子檔上傳完成時通知財務，提醒要列印歸檔（走跟 LINE 到期申請通知同一個管道）
+  function notifyInvoiceUploaded(rec, fileCount){
+    if(!rec) return;
+    var msg = '🧾 有新的電子發票已上傳，請列印歸檔\n廠商：'+(rec.vendor||'—')+'\n門店：'+(rec.store||'—')+'\n金額：'+fmt(rec.amount)+'\n檔案數：'+fileCount+' 份';
+    fetch('https://knkpxeynkecfsmonmzvi.supabase.co/functions/v1/notify-line-message', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({text: msg})
+    }).catch(function(){});
+  }
 
   window.confirmPaperInvoice = async function(id){
     if(!confirm('確認已收到紙本發票並完成親交？')) return;
