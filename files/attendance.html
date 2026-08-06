@@ -180,6 +180,8 @@ const OUTING_CATS = {
 };
 // 巡店支援只能選實體門市／烘豆場，不含總部這類非門市單位
 const STORE_LOCATIONS = ["中山店", "勤美店", "水湳店", "烘豆場"];
+// 外出地點／事由統一顯示成「目的地（目的）」，事由沒填就只顯示地點
+const outDestPurpose = (o) => o.purpose ? `${o.destination}（${o.purpose}）` : o.destination;
 const mapOuting = (r) => ({
   id: r.id, userId: r.employee_id, date: r.date,
   start: hm(r.start_time), expectedEnd: hm(r.expected_end), end: hm(r.end_time),
@@ -396,7 +398,7 @@ function ClockCard({ me, myRec, myOutings, myLeavesToday, now, departments, onCl
             {o.expectedEnd && `　預計 ${o.expectedEnd} 返回`}
             {!o.end && (o.arrivedAt ? `　已到達（${fmtTime(new Date(o.arrivedAt))}）` : "　（外出中，尚未到達）")}
             {o.end ? `　實際 ${o.end} 返回` : ""}
-            　{o.destination} · {o.purpose}
+            　{outDestPurpose(o)}
           </div>
         ))}
         {segCount === 0 && !myLeavesToday.length && "今日尚未打卡。下班後如需再次上班，可重新打卡，各段紀錄皆完整保留。"}
@@ -547,7 +549,7 @@ function TeamBoard({ view, lastSync, syncStatus, dayOffs }) {
                 <td className="td">
                   {r.outings.length === 0 && r.leaves.length === 0 && "—"}
                   {r.outings.map((o, i) => (
-                    <div key={`o${i}`} className="mt-1"><Tag k={OUTING_CATS[o.category]?.tagKey ?? "seg"}>{OUTING_CATS[o.category]?.label ?? "外出"}</Tag> {o.start}{o.end ? `–${o.end}` : " 起"} · {o.destination} · {o.purpose}</div>
+                    <div key={`o${i}`} className="mt-1"><Tag k={OUTING_CATS[o.category]?.tagKey ?? "seg"}>{OUTING_CATS[o.category]?.label ?? "外出"}</Tag> {o.start}{o.end ? `–${o.end}` : " 起"} · {outDestPurpose(o)}</div>
                   ))}
                   {r.leaves.map((l, i) => (
                     <div key={`l${i}`} className="mt-1">
@@ -586,7 +588,7 @@ function TeamBoard({ view, lastSync, syncStatus, dayOffs }) {
                 </div>
               )}
               {r.outings.map((o, i) => (
-                <div key={`o${i}`} className="mt-2"><Tag k={OUTING_CATS[o.category]?.tagKey ?? "seg"}>{OUTING_CATS[o.category]?.label ?? "外出"}</Tag> {o.start}{o.end ? `–${o.end}` : " 起"} · {o.destination} · {o.purpose}</div>
+                <div key={`o${i}`} className="mt-2"><Tag k={OUTING_CATS[o.category]?.tagKey ?? "seg"}>{OUTING_CATS[o.category]?.label ?? "外出"}</Tag> {o.start}{o.end ? `–${o.end}` : " 起"} · {outDestPurpose(o)}</div>
               ))}
               {r.leaves.map((l, i) => (
                 <div key={`l${i}`} className="mt-2">
@@ -756,7 +758,7 @@ function CalendarView({ me, users, leaves, leaveTypes, dayOffs }) {
                       <td className="td">{sessions.length ? sessionHours(sessions) : "—"}</td>
                       <td className="td">
                         {os.length === 0 && "—"}
-                        {os.map((o, i) => <div key={i} className={i > 0 ? "mt-1" : ""}><Tag k={OUTING_CATS[o.category]?.tagKey ?? "seg"}>{OUTING_CATS[o.category]?.label ?? "外出"}</Tag> {o.start}–{o.end ?? "…"} · {o.destination} · {o.purpose}</div>)}
+                        {os.map((o, i) => <div key={i} className={i > 0 ? "mt-1" : ""}><Tag k={OUTING_CATS[o.category]?.tagKey ?? "seg"}>{OUTING_CATS[o.category]?.label ?? "外出"}</Tag> {o.start}–{o.end ?? "…"} · {outDestPurpose(o)}</div>)}
                       </td>
                       <td className="td">
                         {ls.length === 0 && "—"}
@@ -1081,7 +1083,7 @@ function MyAttendance({ me, records, outings, onCorrection, onChangePw }) {
                     <Tag k={OUTING_CATS[o.category]?.tagKey ?? "seg"}>{OUTING_CATS[o.category]?.label ?? "外出"}</Tag>　{o.start} 出發
                     {o.expectedEnd && `　預計 ${o.expectedEnd}`}
                     {o.end ? `　實際 ${o.end} 返回（${o.returnAddress ?? "—"}）` : "　（外出中）"}
-                    　{o.destination} · {o.purpose}
+                    　{outDestPurpose(o)}
                   </div>
                 ))}
               </div>
@@ -1465,7 +1467,7 @@ function AdminPanel({ me, users, departments, records, outings, leaves, leaveTyp
                   <td className="td">{o.arrivedAt ? fmtTime(new Date(o.arrivedAt)) : "—"}</td>
                   <td className="td">{o.end ?? <Tag k="out">外出中</Tag>}</td>
                   <td className="td">
-                    <Tag k={OUTING_CATS[o.category]?.tagKey ?? "seg"}>{OUTING_CATS[o.category]?.label ?? "外出"}</Tag> {o.destination} · {o.purpose}
+                    <Tag k={OUTING_CATS[o.category]?.tagKey ?? "seg"}>{OUTING_CATS[o.category]?.label ?? "外出"}</Tag> {outDestPurpose(o)}
                   </td>
                   <td className="td" style={{ color: "#8B857C" }}>
                     {o.departLat != null ? <>{o.departLat}, {o.departLng}（±{o.departAccuracy}m）</> : "—"}
@@ -1859,10 +1861,14 @@ function PhaseAttendance() {
     loadAll();
   };
   const addDestination = async (outing, extraDest, extraPurpose) => {
-    const newDestination = `${outing.destination} → ${extraDest}（${extraPurpose}）`;
-    const { error } = await sb.from("outings").update({ destination: newDestination }).eq("id", outing.id);
+    const newDestination = `${outDestPurpose(outing)}・${extraDest}（${extraPurpose}）`;
+    const { error } = await sb.from("outings").update({
+      destination: newDestination,
+      purpose: "",
+      arrive_lat: null, arrive_lng: null, arrive_accuracy: null, arrived_at: null,
+    }).eq("id", outing.id);
     if (error) { setToast("新增地點失敗：" + error.message); return; }
-    setToast("已加入地點");
+    setToast("已加入地點，請記得再次點選「到達」");
     loadAll();
   };
   const applyLeave = async (f) => {
