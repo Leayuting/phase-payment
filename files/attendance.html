@@ -1861,7 +1861,7 @@ function PhaseAttendance() {
     loadAll();
   };
   const addDestination = async (outing, extraDest, extraPurpose) => {
-    const newDestination = `${outDestPurpose(outing)}・${extraDest}（${extraPurpose}）`;
+    const newDestination = `${outDestPurpose(outing)} → ${extraDest}（${extraPurpose}）`;
     const { error } = await sb.from("outings").update({
       destination: newDestination,
       purpose: "",
