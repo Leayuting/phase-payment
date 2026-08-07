@@ -421,6 +421,17 @@ function attachHtml(urls,id){
   return '<div class="attach-row">'+items+uploader+'</div>';
 }
 
+// 補上傳附件/發票成功時通知財務，提醒有新檔案需要確認（跟請款申請的發票通知走同一個管道）
+function notifyAttachmentUploaded(rec, fileCount){
+  if(!rec) return;
+  var msg='📎 廠商匯款紀錄有新附件上傳，請確認是否為發票並列印歸檔\n廠商：'+(rec.vendor||'—')+'\n門店：'+(rec.store||'—')+'\n金額：'+fmt(rec.amount)+'\n檔案數：'+fileCount+' 份';
+  fetch('https://knkpxeynkecfsmonmzvi.supabase.co/functions/v1/notify-line-message',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({text:msg})
+  }).catch(function(){});
+}
+
 window.uploadRecordAttachment=async function(id){
   var fileInput=document.getElementById('att-file-'+id);
   var files=fileInput.files;
@@ -440,6 +451,7 @@ window.uploadRecordAttachment=async function(id){
     var allUrls=(rec&&rec.attachment_urls?rec.attachment_urls.slice():[]).concat(urls);
     var res=await sb.from('records').update({attachment_urls:allUrls}).eq('id',id);
     if(res.error) throw res.error;
+    notifyAttachmentUploaded(rec, urls.length);
   }catch(e){
     console.error(e);
     alert('上傳附件失敗：'+(e.message||e));
