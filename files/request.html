@@ -379,6 +379,7 @@
         <label class="batch-select-all"><input type="checkbox" id="chk-all-approved" onchange="toggleSelectAll('approved', this.checked)"> 全選</label>
         <span class="batch-count" id="batch-count-approved"></span>
         <button class="btn btn-pay btn-sm" onclick="batchPay()">批次撥款並轉入匯款紀錄</button>
+        <button class="btn btn-reject btn-sm" onclick="financeBatchReject()">批次駁回</button>
       </div>
       <div id="list-approved"><div class="empty">目前沒有待撥款項目</div></div>
     </div>
@@ -631,7 +632,7 @@
 
   // ---- 本機身份（輕量級：只用來決定「我的申請」要不要顯示編輯/取消鈕，不是真的登入） ----
   // ---- 審核歷程（history）共用工具 ----
-  var ACTION_LABELS = {submitted:'送出申請', edited:'編輯', resubmitted:'重新送審', rejected:'退回', approved:'核准', paid:'撥款', cancelled:'申請人取消', finance_edit:'財務編輯'};
+  var ACTION_LABELS = {submitted:'送出申請', edited:'編輯', resubmitted:'重新送審', rejected:'退回', approved:'核准', paid:'撥款', cancelled:'申請人取消', finance_edit:'財務編輯', finance_rejected:'財務駁回'};
   function historyEntry(action, note, by){
     return {action:action, at:new Date().toISOString(), by:by||null, note:note||null};
   }
@@ -954,6 +955,7 @@
     } else if(opts.showPay){
       actions = '<div class="req-actions">'
         + '<button class="btn btn-pay btn-sm" onclick="payReq('+r.id+')">標記已撥款並轉入匯款紀錄</button>'
+        + '<button class="btn btn-reject btn-sm" onclick="financeRejectReq('+r.id+')">駁回</button>'
         + '</div>';
     }
     if(r.status==='已撥款'){
@@ -1197,6 +1199,21 @@
     await sb.from('requests').update({status:'已退回', approver_note:note, history:hist, updated_at:new Date().toISOString()}).eq('id', id);
   };
 
+  // 財務在撥款前發現資訊有誤（例如審核人員沒注意到），也可以駁回，走跟審核退回一樣的
+  // 重新編輯/重新送審流程，只是記錄的操作角色不同（財務駁回 vs 審核退回）
+  window.financeRejectReq = async function(id){
+    if(!isFinanceUnlocked()){ alert('請先輸入撥款密碼'); return; }
+    var r = requests.find(function(x){ return x.id===id; });
+    if(!r) return;
+    if(r.status!=='已核准'){ alert('此申請不是「已核准」狀態，無法駁回'); return; }
+    var note = prompt('請輸入駁回原因（必填）：') || '';
+    note = note.trim();
+    if(!note){ alert('駁回原因為必填，請重新操作'); return; }
+    var financeName = getFinanceName();
+    var hist = (r.history||[]).concat([historyEntry('finance_rejected', note, financeName)]);
+    await sb.from('requests').update({status:'已退回', approver_note:note, history:hist, updated_at:new Date().toISOString()}).eq('id', id);
+  };
+
   async function payOne(r){
     var insertRes = await sb.from('records').insert([{
       store: r.store,
@@ -1285,6 +1302,22 @@
     }
     selectedApproved.clear();
     if(failed.length){ alert('以下項目轉入失敗，請確認 records 資料表欄位是否相符：\n'+failed.join('、')); }
+  };
+
+  window.financeBatchReject = async function(){
+    if(!isFinanceUnlocked()){ alert('請先輸入撥款密碼'); return; }
+    var targets = requests.filter(function(r){ return r.status==='已核准' && selectedApproved.has(r.id); });
+    if(!targets.length){ alert('請先勾選要駁回的項目'); return; }
+    var note = prompt('請輸入駁回原因（必填，套用到所有選取項目）：') || '';
+    note = note.trim();
+    if(!note){ alert('駁回原因為必填，請重新操作'); return; }
+    if(!confirm('確定要駁回選取的 '+targets.length+' 筆申請嗎？')) return;
+    var financeName = getFinanceName();
+    for(var i=0;i<targets.length;i++){
+      var hist = (targets[i].history||[]).concat([historyEntry('finance_rejected', note, financeName)]);
+      await sb.from('requests').update({status:'已退回', approver_note:note, history:hist, updated_at:new Date().toISOString()}).eq('id', targets[i].id);
+    }
+    selectedApproved.clear();
   };
 
   // ---- load & realtime ----
