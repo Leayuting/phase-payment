@@ -1141,7 +1141,7 @@ function MyAttendance({ me, records, outings, onCorrection, onChangePw }) {
 }
 
 /* ---------- 管理後台 ---------- */
-function AdminPanel({ me, users, departments, records, outings, leaves, leaveTypes, requests, audit, actions }) {
+function AdminPanel({ me, users, departments, records, outings, leaves, leaveTypes, requests, audit, actions, dayOffs }) {
   const [tab, setTab] = useState("dash");
   const staff = users.filter((u) => u.role !== "admin");
   const ds = today();
@@ -1167,6 +1167,7 @@ function AdminPanel({ me, users, departments, records, outings, leaves, leaveTyp
   const nowD0 = new Date();
   const [hoursYm, setHoursYm] = useState({ y: nowD0.getFullYear(), m: nowD0.getMonth() });
   const moveHoursYm = (k) => setHoursYm(({ y, m }) => { const d = new Date(y, m + k, 1); return { y: d.getFullYear(), m: d.getMonth() }; });
+  const [leaveDetail, setLeaveDetail] = useState(null);
 
   const tabs = [
     ["dash", "儀表板"],
@@ -1176,7 +1177,7 @@ function AdminPanel({ me, users, departments, records, outings, leaves, leaveTyp
     ["dept", "單位管理"],
     ["rec", `出勤紀錄${pendingCorr.length ? ` (${pendingCorr.length})` : ""}`],
     ["outrec", "外出紀錄"],
-    ["hours", "工時統計"],
+    ["hours", "每月結算"],
     ["audit", "異動紀錄"],
   ];
 
@@ -1493,7 +1494,11 @@ function AdminPanel({ me, users, departments, records, outings, leaves, leaveTyp
           const totalHours = recs.reduce((sum, r) => sum + Number(sessionHours(r.sessions)), 0);
           const daysWorked = recs.filter((r) => r.sessions.length > 0).length;
           const hasOpenSession = recs.some((r) => r.sessions.some((s) => s.in && !s.out));
-          return { u, totalHours, daysWorked, hasOpenSession };
+          const leaveItems = leaves.filter((l) => l.userId === u.id && l.status === "approved" && l.startDate.startsWith(prefix));
+          const leaveHours = leaveItems.reduce((sum, l) => sum + Number(l.hours || 0), 0);
+          const dayOffDays = (dayOffs || []).filter((o) => o.userId === u.id && o.date.startsWith(prefix)).length;
+          const outingCount = outings.filter((o) => o.userId === u.id && o.date.startsWith(prefix)).length;
+          return { u, totalHours, daysWorked, hasOpenSession, leaveHours, leaveItems, dayOffDays, outingCount };
         });
         return (
           <div>
@@ -1506,24 +1511,34 @@ function AdminPanel({ me, users, departments, records, outings, leaves, leaveTyp
               <table className="w-full">
                 <thead><tr>
                   <th className="th">員工</th><th className="th">單位</th><th className="th">出勤天數</th>
-                  <th className="th">總工時</th><th className="th">備註</th>
+                  <th className="th">總工時</th><th className="th">請假時數</th><th className="th">排休天數</th>
+                  <th className="th">外出次數</th><th className="th">備註</th>
                 </tr></thead>
                 <tbody>
-                  {rows.map(({ u, totalHours, daysWorked, hasOpenSession }) => (
+                  {rows.map(({ u, totalHours, daysWorked, hasOpenSession, leaveHours, leaveItems, dayOffDays, outingCount }) => (
                     <tr key={u.id}>
                       <td className="td font-medium">{u.name}</td>
                       <td className="td" style={{ color: "#8B857C" }}>{u.department}</td>
                       <td className="td">{daysWorked} 天</td>
                       <td className="td font-medium">{totalHours.toFixed(1)} 小時</td>
+                      <td className="td">
+                        {leaveItems.length > 0 ? (
+                          <button className="underline" onClick={() => setLeaveDetail({ u, items: leaveItems })}>
+                            {leaveHours.toFixed(1)} 小時
+                          </button>
+                        ) : `${leaveHours.toFixed(1)} 小時`}
+                      </td>
+                      <td className="td">{dayOffDays} 天</td>
+                      <td className="td">{outingCount} 次</td>
                       <td className="td">{hasOpenSession && <span className="tag t-abn">有未下班紀錄</span>}</td>
                     </tr>
                   ))}
-                  {rows.length === 0 && <tr><td className="td" colSpan={5} style={{ color: "#B3ADA4" }}>本月尚無資料</td></tr>}
+                  {rows.length === 0 && <tr><td className="td" colSpan={8} style={{ color: "#B3ADA4" }}>本月尚無資料</td></tr>}
                 </tbody>
               </table>
             </div>
             <div className="text-xs mt-3" style={{ color: "#B3ADA4" }}>
-              總工時僅計算已完整打卡（有上班也有下班）的段次；若顯示「有未下班紀錄」，請先到「出勤紀錄」補登，避免核算時數短少。
+              總工時僅計算已完整打卡（有上班也有下班）的段次；請假時數以請假單起始日所在月份計算、僅計已核准。若顯示「有未下班紀錄」，請先到「出勤紀錄」補登，避免核算時數短少。
             </div>
           </div>
         );
@@ -1545,6 +1560,30 @@ function AdminPanel({ me, users, departments, records, outings, leaves, leaveTyp
           ))}
           <div className="text-xs" style={{ color: "#B3ADA4" }}>異動紀錄為唯讀，所有歷程不可刪除。</div>
         </div>
+      )}
+
+      {leaveDetail && (
+        <Modal title={`${leaveDetail.u.name} 的請假明細`} onClose={() => setLeaveDetail(null)}>
+          <div className="space-y-3 text-sm">
+            {leaveDetail.items.map((l) => (
+              <div key={l.id} className="border hair rounded-lg p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-medium">{tName(l.typeId)}</span>
+                  <span>{l.hours} 小時</span>
+                </div>
+                <div className="text-xs mt-1" style={{ color: "#8B857C" }}>
+                  {l.startDate} {l.startTime} ～ {l.endDate} {l.endTime}
+                </div>
+                <div className="text-xs mt-1" style={{ color: "#8B857C" }}>
+                  事由：{l.reason}{l.note && `　備註：${l.note}`}
+                </div>
+              </div>
+            ))}
+            <div className="text-xs" style={{ color: "#B3ADA4" }}>
+              合計 {leaveDetail.items.reduce((sum, l) => sum + Number(l.hours || 0), 0).toFixed(1)} 小時
+            </div>
+          </div>
+        </Modal>
       )}
 
       {reviewLv && (
@@ -2180,7 +2219,7 @@ function PhaseAttendance() {
           )}
           {page === "admin" && me.role === "admin" && (
             <AdminPanel me={me} users={employees} departments={departments} records={records} outings={outings}
-              leaves={leaves} leaveTypes={leaveTypes} requests={requests} audit={audit} actions={adminActions} />
+              leaves={leaves} leaveTypes={leaveTypes} requests={requests} audit={audit} actions={adminActions} dayOffs={dayOffs} />
           )}
         </main>
       </div>
