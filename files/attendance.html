@@ -30,7 +30,7 @@
 body{margin:0;}
 /* Phase 品牌色：Brick Red 主色/CTA、Warm Cream 背景、Burnt Brown 主文字，
    狀態標籤取自品牌五色（灰／咖啡／酒紅／玫瑰粉／琥珀黃） */
-.ph-root{font-family:'Noto Sans TC',sans-serif;color:#1A0800;background:#F5F2EE;min-height:100vh;}
+.ph-root{font-family:'Noto Sans TC',sans-serif;color:#1A0800;background:#F5F2EE;min-height:100vh;padding-top:env(safe-area-inset-top);}
 .f-serif{font-family:'Noto Serif TC',serif;}
 .ink{color:#1A0800}.brick{color:#B5402A}
 .hair{border-color:#E4DED2}
@@ -1168,6 +1168,7 @@ function AdminPanel({ me, users, departments, records, outings, leaves, leaveTyp
   const [hoursYm, setHoursYm] = useState({ y: nowD0.getFullYear(), m: nowD0.getMonth() });
   const moveHoursYm = (k) => setHoursYm(({ y, m }) => { const d = new Date(y, m + k, 1); return { y: d.getFullYear(), m: d.getMonth() }; });
   const [leaveDetail, setLeaveDetail] = useState(null);
+  const [hoursDetail, setHoursDetail] = useState(null);
 
   const tabs = [
     ["dash", "儀表板"],
@@ -1490,15 +1491,16 @@ function AdminPanel({ me, users, departments, records, outings, leaves, leaveTyp
         const y = hoursYm.y, m = hoursYm.m;
         const prefix = `${y}-${pad(m + 1)}`;
         const rows = staff.map((u) => {
-          const recs = records.filter((r) => r.userId === u.id && r.date.startsWith(prefix));
+          const recs = records.filter((r) => r.userId === u.id && r.date.startsWith(prefix) && r.sessions.length > 0)
+            .slice().sort((a, b) => a.date.localeCompare(b.date));
           const totalHours = recs.reduce((sum, r) => sum + Number(sessionHours(r.sessions)), 0);
-          const daysWorked = recs.filter((r) => r.sessions.length > 0).length;
+          const daysWorked = recs.length;
           const hasOpenSession = recs.some((r) => r.sessions.some((s) => s.in && !s.out));
           const leaveItems = leaves.filter((l) => l.userId === u.id && l.status === "approved" && l.startDate.startsWith(prefix));
           const leaveHours = leaveItems.reduce((sum, l) => sum + Number(l.hours || 0), 0);
           const dayOffDays = (dayOffs || []).filter((o) => o.userId === u.id && o.date.startsWith(prefix)).length;
           const outingCount = outings.filter((o) => o.userId === u.id && o.date.startsWith(prefix)).length;
-          return { u, totalHours, daysWorked, hasOpenSession, leaveHours, leaveItems, dayOffDays, outingCount };
+          return { u, totalHours, daysWorked, hasOpenSession, leaveHours, leaveItems, dayOffDays, outingCount, recs };
         });
         return (
           <div>
@@ -1515,12 +1517,18 @@ function AdminPanel({ me, users, departments, records, outings, leaves, leaveTyp
                   <th className="th">外出次數</th><th className="th">備註</th>
                 </tr></thead>
                 <tbody>
-                  {rows.map(({ u, totalHours, daysWorked, hasOpenSession, leaveHours, leaveItems, dayOffDays, outingCount }) => (
+                  {rows.map(({ u, totalHours, daysWorked, hasOpenSession, leaveHours, leaveItems, dayOffDays, outingCount, recs }) => (
                     <tr key={u.id}>
                       <td className="td font-medium">{u.name}</td>
                       <td className="td" style={{ color: "#8B857C" }}>{u.department}</td>
                       <td className="td">{daysWorked} 天</td>
-                      <td className="td font-medium">{totalHours.toFixed(1)} 小時</td>
+                      <td className="td font-medium">
+                        {recs.length > 0 ? (
+                          <button className="underline" onClick={() => setHoursDetail({ u, recs })}>
+                            {totalHours.toFixed(1)} 小時
+                          </button>
+                        ) : `${totalHours.toFixed(1)} 小時`}
+                      </td>
                       <td className="td">
                         {leaveItems.length > 0 ? (
                           <button className="underline" onClick={() => setLeaveDetail({ u, items: leaveItems })}>
@@ -1530,7 +1538,14 @@ function AdminPanel({ me, users, departments, records, outings, leaves, leaveTyp
                       </td>
                       <td className="td">{dayOffDays} 天</td>
                       <td className="td">{outingCount} 次</td>
-                      <td className="td">{hasOpenSession && <span className="tag t-abn">有未下班紀錄</span>}</td>
+                      <td className="td">
+                        {hasOpenSession && (
+                          <button className="tag t-abn"
+                            onClick={() => setHoursDetail({ u, recs: recs.filter((r) => r.sessions.some((s) => s.in && !s.out)) })}>
+                            有未下班紀錄
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                   {rows.length === 0 && <tr><td className="td" colSpan={8} style={{ color: "#B3ADA4" }}>本月尚無資料</td></tr>}
@@ -1581,6 +1596,35 @@ function AdminPanel({ me, users, departments, records, outings, leaves, leaveTyp
             ))}
             <div className="text-xs" style={{ color: "#B3ADA4" }}>
               合計 {leaveDetail.items.reduce((sum, l) => sum + Number(l.hours || 0), 0).toFixed(1)} 小時
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {hoursDetail && (
+        <Modal title={`${hoursDetail.u.name} 的出勤明細`} onClose={() => setHoursDetail(null)}>
+          <div className="space-y-3 text-sm">
+            {hoursDetail.recs.map((r) => {
+              const open = r.sessions.some((s) => s.in && !s.out);
+              return (
+                <div key={r.date} className="border hair rounded-lg p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-medium">{r.date}</span>
+                    <span>
+                      {sessionHours(r.sessions)} 小時
+                      {open && <span className="tag t-abn ml-2">有未下班紀錄</span>}
+                    </span>
+                  </div>
+                  <div className="text-xs mt-1" style={{ color: "#8B857C" }}>
+                    {r.sessions.map((s, i) => (
+                      <span key={i} className={i > 0 ? "ml-3" : ""}>{s.in ?? "…"}–{s.out ?? "尚未下班"}</span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+            <div className="text-xs" style={{ color: "#B3ADA4" }}>
+              合計 {hoursDetail.recs.reduce((sum, r) => sum + Number(sessionHours(r.sessions)), 0).toFixed(1)} 小時
             </div>
           </div>
         </Modal>
