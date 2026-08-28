@@ -424,6 +424,7 @@
         <button class="chip" data-status="已退回">已退回</button>
         <button class="chip" data-status="已取消">已取消</button>
       </div>
+      <input class="form-input" type="text" id="history-search" placeholder="🔍 搜尋廠商、申請人或品項用途…" style="margin-bottom:18px;">
       <h3 id="history-title">申請紀錄</h3>
       <div id="list-history"><div class="empty">尚無資料</div></div>
     </div>
@@ -1359,6 +1360,15 @@
     if(!historyShowPaidOnly && historyStatusFilter && historyStatusFilter!=='全部'){
       list = list.filter(function(r){ return r.status===historyStatusFilter; });
     }
+    var searchInput = document.getElementById('history-search');
+    var q = searchInput ? searchInput.value.trim().toLowerCase() : '';
+    if(q){
+      list = list.filter(function(r){
+        return (r.vendor||'').toLowerCase().indexOf(q)>=0
+          || (r.applicant||'').toLowerCase().indexOf(q)>=0
+          || (r.purpose||'').toLowerCase().indexOf(q)>=0;
+      });
+    }
     return list.slice().sort(function(a,b){ return new Date(b.created_at)-new Date(a.created_at); });
   }
 
@@ -1389,6 +1399,7 @@
     renderHistory();
   };
   document.getElementById('history-day').addEventListener('change', renderHistory);
+  document.getElementById('history-search').addEventListener('input', renderHistory);
 
   function exportHistoryExcel(){
     var list = getHistoryList();
