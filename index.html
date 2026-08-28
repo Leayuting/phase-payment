@@ -11,6 +11,21 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="廠商匯款">
+<script>
+  (function(){
+    var shown = false;
+    function showLoadErrorBanner(){
+      if(shown) return; shown = true;
+      var b = document.createElement('div');
+      b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#b91c1c;color:#fff;padding:10px 16px;text-align:center;font-size:14px;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;font-family:sans-serif;';
+      b.innerHTML = '⚠️ 網路不穩，頁面沒有完全載入，按鈕可能沒有反應。<button style="background:#fff;color:#b91c1c;border:none;border-radius:6px;padding:4px 14px;cursor:pointer;font-weight:bold;">重新整理</button>';
+      b.querySelector('button').onclick = function(){ location.reload(); };
+      var append = function(){ document.body.appendChild(b); };
+      if(document.body) append(); else document.addEventListener('DOMContentLoaded', append);
+    }
+    window.addEventListener('error', showLoadErrorBanner, true);
+  })();
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
