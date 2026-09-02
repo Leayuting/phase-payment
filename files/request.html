@@ -233,7 +233,7 @@
           <option value="無憑證">無憑證</option>
           <option value="後補">發票後補</option>
           <option value="紙本發票親交">紙本發票親交</option>
-          <option value="電子發票已上傳">電子發票已上傳</option>
+          <option value="電子發票已上傳">發票已上傳</option>
         </select>
       </div>
       <div class="full">
@@ -324,7 +324,7 @@
             <option value="無憑證">無憑證</option>
             <option value="後補">發票後補</option>
             <option value="紙本發票親交">紙本發票親交</option>
-            <option value="電子發票已上傳">電子發票已上傳</option>
+            <option value="電子發票已上傳">發票已上傳</option>
           </select>
         </div>
         <div class="full">
@@ -1027,13 +1027,17 @@
           ['申請日期', (r.created_at||'').slice(0,10)],
           ['門店', r.store],
           ['申請人', r.applicant],
-          ['發票', r.invoice_status],
+          ['發票', invoiceStatusLabel(r.invoice_status)],
           ['狀態', statusPill(r.status)]
         ])
       + (opts.showBank ? bankInfoHtml(r) : '')
       + attachHtml(r.attachment_urls)
       + actions
       + '</div>';
+  }
+
+  function invoiceStatusLabel(s){
+    return s==='電子發票已上傳' ? '發票已上傳' : (s||'');
   }
 
   function fieldsHtml(pairs){
@@ -1442,7 +1446,7 @@
         '廠商名稱': r.vendor||'',
         '品項/用途說明': r.purpose||'',
         '金額': r.amount_total||0,
-        '發票狀態': r.invoice_status||'',
+        '發票狀態': invoiceStatusLabel(r.invoice_status),
         '狀態': r.status||'',
         '戶名': r.account_name||'',
         '銀行': r.bank_name||'',
