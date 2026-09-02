@@ -443,7 +443,13 @@
         <button class="chip" data-status="已退回">已退回</button>
         <button class="chip" data-status="已取消">已取消</button>
       </div>
-      <input class="form-input" type="text" id="history-search" placeholder="🔍 搜尋廠商、申請人或品項用途…" style="margin-bottom:18px;">
+      <div class="store-filter" id="history-store-filter" style="margin-top:8px;">
+        <button class="chip active" data-store="全部">全部</button>
+        <button class="chip" data-store="中山">中山</button>
+        <button class="chip" data-store="中山二">中山二</button>
+        <button class="chip" data-store="勤美">勤美</button>
+      </div>
+      <input class="form-input" type="text" id="history-search" placeholder="🔍 搜尋廠商、申請人或品項用途…" style="margin-bottom:18px; margin-top:12px;">
       <h3 id="history-title">申請紀錄</h3>
       <div id="list-history"><div class="empty">尚無資料</div></div>
     </div>
@@ -567,6 +573,8 @@
   }
   wireStoreChips('review-store-filter', function(v){ storeFilter = v; renderReview(); });
   wireStoreChips('invoice-store-filter', function(v){ invoiceStoreFilter = v; renderInvoiceTracking(); });
+  var historyStoreFilter = '全部';
+  wireStoreChips('history-store-filter', function(v){ historyStoreFilter = v; renderHistory(); });
 
   var historyStatusFilter = '全部';
   (function(){
@@ -1378,6 +1386,9 @@
     }
     if(!historyShowPaidOnly && historyStatusFilter && historyStatusFilter!=='全部'){
       list = list.filter(function(r){ return r.status===historyStatusFilter; });
+    }
+    if(historyStoreFilter && historyStoreFilter!=='全部'){
+      list = list.filter(function(r){ return r.store===historyStoreFilter; });
     }
     var searchInput = document.getElementById('history-search');
     var q = searchInput ? searchInput.value.trim().toLowerCase() : '';
